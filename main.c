@@ -72,6 +72,18 @@ void count_bases(const char *sequence, int *count_a, int *count_c, int *count_g,
     }
 }
 
+void print_stats(const char *sequence) {
+    int count_a, count_c, count_g, count_t;
+
+    count_bases(sequence, &count_a, &count_c, &count_g, &count_t);
+
+    printf("Base statistics:\n");
+    printf("A: %d\n", count_a);
+    printf("C: %d\n", count_c);
+    printf("G: %d\n", count_g);
+    printf("T: %d\n", count_t);
+}
+
 void clean_sequence(char *sequence) {
     int length = strlen(sequence);
     int j = 0;
@@ -107,13 +119,28 @@ int load_from_file(const char *filename, char *buffer, int max_len) {
 
 int main(int argc, char *argv[]) {
     char sequence[MAX_DNA_LENGTH];
+    int show_ascii = 1;
+    int show_stats = 1;
+    int file_mode = 0;
 
-    if (argc == 3 && strcmp(argv[1], "--file") == 0) {
-        if (!load_from_file(argv[2], sequence, MAX_DNA_LENGTH)) {
-            printf("Failed to load file: %s\n", argv[2]);
-            return 1;
+    if (argc >= 2) {
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "--ascii") == 0) {
+                show_ascii = 1;
+            } else if (strcmp(argv[i], "--stats") == 0) {
+                show_stats = 1;
+            } else if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
+                if (!load_from_file(argv[i + 1], sequence, MAX_DNA_LENGTH)) {
+                    printf("Failed to load file: %s\n", argv[i + 1]);
+                    return 1;
+                }
+                file_mode = 1;
+                i++;
+            }
         }
-    } else {
+    }
+
+    if (!file_mode) {
         printf("Enter DNA sequence:\n");
         if (fgets(sequence, sizeof(sequence), stdin) == NULL) {
             printf("Input error.\n");
@@ -125,17 +152,15 @@ int main(int argc, char *argv[]) {
 
     clean_sequence(sequence);
 
-    printf("Valid DNA sequence:\n");
-    print_sequence(sequence);
+    if (show_ascii) {
+        printf("Valid DNA sequence:\n");
+        print_sequence(sequence);
+    }
 
-    int count_a, count_c, count_g, count_t;
-    count_bases(sequence, &count_a, &count_c, &count_g, &count_t);
-
-    printf("\nBase statistics:\n");
-    printf("A: %d\n", count_a);
-    printf("C: %d\n", count_c);
-    printf("G: %d\n", count_g);
-    printf("T: %d\n", count_t);
+    if (show_stats) {
+        printf("\n");
+        print_stats(sequence);
+    }
 
     return 0;
 }
