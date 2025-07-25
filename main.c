@@ -17,6 +17,37 @@ int is_valid_base(char base) {
     }
 }
 
+char complement_base(char base) {
+    switch (base) {
+        case 'A':
+            return 'T';
+        case 'T':
+            return 'A';
+        case 'C':
+            return 'G';
+        case 'G':
+            return 'C';
+        default:
+            return '?';
+    }
+}
+
+void reverse_sequence(char *sequence) {
+    int length = strlen(sequence);
+    for (int i = 0; i < length / 2; i++) {
+        char temp = sequence[i];
+        sequence[i] = sequence[length - 1 - i];
+        sequence[length - 1 - i] = temp;
+    }
+}
+
+void make_complement(char *sequence) {
+    int length = strlen(sequence);
+    for (int i = 0; i < length; i++) {
+        sequence[i] = complement_base(sequence[i]);
+    }
+}
+
 void print_base(char base) {
     switch (base) {
         case 'A':
@@ -39,12 +70,10 @@ void print_base(char base) {
 
 void print_sequence(const char *sequence) {
     int i = 0;
-
     while (sequence[i] != '\0') {
         print_base(sequence[i]);
         i++;
     }
-
     printf("\n");
 }
 
@@ -74,9 +103,7 @@ void count_bases(const char *sequence, int *count_a, int *count_c, int *count_g,
 
 void print_stats(const char *sequence) {
     int count_a, count_c, count_g, count_t;
-
     count_bases(sequence, &count_a, &count_c, &count_g, &count_t);
-
     printf("Base statistics:\n");
     printf("A: %d\n", count_a);
     printf("C: %d\n", count_c);
@@ -90,7 +117,6 @@ void clean_sequence(char *sequence) {
 
     for (int i = 0; i < length; i++) {
         char base = toupper(sequence[i]);
-
         if (is_valid_base(base)) {
             sequence[j] = base;
             j++;
@@ -122,6 +148,8 @@ int main(int argc, char *argv[]) {
     int show_ascii = 1;
     int show_stats = 1;
     int file_mode = 0;
+    int do_reverse = 0;
+    int do_complement = 0;
 
     if (argc >= 2) {
         for (int i = 1; i < argc; i++) {
@@ -136,6 +164,10 @@ int main(int argc, char *argv[]) {
                 }
                 file_mode = 1;
                 i++;
+            } else if (strcmp(argv[i], "--reverse") == 0) {
+                do_reverse = 1;
+            } else if (strcmp(argv[i], "--complement") == 0) {
+                do_complement = 1;
             }
         }
     }
@@ -146,11 +178,18 @@ int main(int argc, char *argv[]) {
             printf("Input error.\n");
             return 1;
         }
-
         sequence[strcspn(sequence, "\n")] = '\0';
     }
 
     clean_sequence(sequence);
+
+    if (do_complement) {
+        make_complement(sequence);
+    }
+
+    if (do_reverse) {
+        reverse_sequence(sequence);
+    }
 
     if (show_ascii) {
         printf("Valid DNA sequence:\n");
