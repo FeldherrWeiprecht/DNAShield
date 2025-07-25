@@ -39,7 +39,7 @@ void print_base(char base) {
 }
 
 void print_sequence(const char *sequence) {
-    for (int i = 0; sequence[i] != '\0'; i = i + 1) {
+    for (int i = 0; sequence[i] != '\0'; i++) {
         print_base(sequence[i]);
     }
 
@@ -59,16 +59,16 @@ void clean_sequence(char *sequence) {
 
         if (is_valid_base(base)) {
             sequence[j] = base;
-            j = j + 1;
+            j++;
         }
 
-        i = i + 1;
+        i++;
     }
 
     sequence[j] = '\0';
 }
 
-int read_sequence(char *buffer, int max_length) {
+int read_sequence_stdin(char *buffer, int max_length) {
     printf("Enter DNA sequence:\n");
 
     if (fgets(buffer, max_length, stdin) == NULL) {
@@ -84,12 +84,46 @@ int read_sequence(char *buffer, int max_length) {
     return 1;
 }
 
-int main() {
-    char sequence[MAX_DNA_LENGTH];
+int read_sequence_file(const char *filename, char *buffer, int max_length) {
+    FILE *file = fopen(filename, "r");
 
-    if (!read_sequence(sequence, MAX_DNA_LENGTH)) {
-        printf("Failed to read input.\n");
-        return 1;
+    if (file == NULL) {
+        return 0;
+    }
+
+    if (fgets(buffer, max_length, file) == NULL) {
+        fclose(file);
+        return 0;
+    }
+
+    int length = strlen(buffer);
+
+    if (length > 0 && buffer[length - 1] == '\n') {
+        buffer[length - 1] = '\0';
+    }
+
+    fclose(file);
+    return 1;
+}
+
+int main(int argc, char *argv[]) {
+    char sequence[MAX_DNA_LENGTH];
+    int loaded = 0;
+
+    if (argc == 3 && strcmp(argv[1], "--file") == 0) {
+        loaded = read_sequence_file(argv[2], sequence, MAX_DNA_LENGTH);
+
+        if (!loaded) {
+            printf("Failed to read from file: %s\n", argv[2]);
+            return 1;
+        }
+    } else {
+        loaded = read_sequence_stdin(sequence, MAX_DNA_LENGTH);
+
+        if (!loaded) {
+            printf("Failed to read input.\n");
+            return 1;
+        }
     }
 
     clean_sequence(sequence);
