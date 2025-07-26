@@ -127,6 +127,25 @@ void print_summary(const char *sequence) {
     );
 }
 
+void print_json(const char *sequence) {
+    int count_a, count_c, count_g, count_t;
+    count_bases(sequence, &count_a, &count_c, &count_g, &count_t);
+    int total = count_a + count_c + count_g + count_t;
+    int gc = count_g + count_c;
+
+    printf("{\n");
+    printf("  \"length\": %d,\n", total);
+    printf("  \"sequence\": \"%s\",\n", sequence);
+    printf("  \"counts\": {\n");
+    printf("    \"A\": %d,\n", count_a);
+    printf("    \"C\": %d,\n", count_c);
+    printf("    \"G\": %d,\n", count_g);
+    printf("    \"T\": %d\n", count_t);
+    printf("  },\n");
+    printf("  \"gc_percent\": %.1f\n", total > 0 ? (100.0 * gc / total) : 0.0);
+    printf("}\n");
+}
+
 void clean_sequence(char *sequence) {
     int length = strlen(sequence);
     int j = 0;
@@ -164,6 +183,7 @@ int main(int argc, char *argv[]) {
     int show_ascii = 1;
     int show_stats = 1;
     int show_summary = 0;
+    int show_json = 0;
     int file_mode = 0;
     int do_reverse = 0;
     int do_complement = 0;
@@ -176,6 +196,11 @@ int main(int argc, char *argv[]) {
                 show_stats = 1;
             } else if (strcmp(argv[i], "--summary") == 0) {
                 show_summary = 1;
+            } else if (strcmp(argv[i], "--json") == 0) {
+                show_json = 1;
+                show_ascii = 0;
+                show_stats = 0;
+                show_summary = 0;
             } else if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
                 if (!load_from_file(argv[i + 1], sequence, MAX_DNA_LENGTH)) {
                     printf("Failed to load file: %s\n", argv[i + 1]);
@@ -208,6 +233,10 @@ int main(int argc, char *argv[]) {
 
     if (do_reverse) {
         reverse_sequence(sequence);
+    }
+
+    if (show_json) {
+        print_json(sequence);
     }
 
     if (show_ascii) {
