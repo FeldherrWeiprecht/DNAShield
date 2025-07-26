@@ -111,6 +111,22 @@ void print_stats(const char *sequence) {
     printf("T: %d\n", count_t);
 }
 
+void print_summary(const char *sequence) {
+    int count_a, count_c, count_g, count_t;
+    count_bases(sequence, &count_a, &count_c, &count_g, &count_t);
+    int total = count_a + count_c + count_g + count_t;
+    int gc = count_g + count_c;
+
+    printf("\nSummary: Length=%d A=%d C=%d G=%d T=%d GC%%=%.1f%%\n",
+        total,
+        count_a,
+        count_c,
+        count_g,
+        count_t,
+        total > 0 ? (100.0 * gc / total) : 0.0
+    );
+}
+
 void clean_sequence(char *sequence) {
     int length = strlen(sequence);
     int j = 0;
@@ -147,6 +163,7 @@ int main(int argc, char *argv[]) {
     char sequence[MAX_DNA_LENGTH];
     int show_ascii = 1;
     int show_stats = 1;
+    int show_summary = 0;
     int file_mode = 0;
     int do_reverse = 0;
     int do_complement = 0;
@@ -157,6 +174,8 @@ int main(int argc, char *argv[]) {
                 show_ascii = 1;
             } else if (strcmp(argv[i], "--stats") == 0) {
                 show_stats = 1;
+            } else if (strcmp(argv[i], "--summary") == 0) {
+                show_summary = 1;
             } else if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
                 if (!load_from_file(argv[i + 1], sequence, MAX_DNA_LENGTH)) {
                     printf("Failed to load file: %s\n", argv[i + 1]);
@@ -199,6 +218,10 @@ int main(int argc, char *argv[]) {
     if (show_stats) {
         printf("\n");
         print_stats(sequence);
+    }
+
+    if (show_summary) {
+        print_summary(sequence);
     }
 
     return 0;
