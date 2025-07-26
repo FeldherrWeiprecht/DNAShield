@@ -146,6 +146,33 @@ void print_json(const char *sequence) {
     printf("}\n");
 }
 
+void export_csv(const char *filename, const char *sequence) {
+    int count_a, count_c, count_g, count_t;
+    count_bases(sequence, &count_a, &count_c, &count_g, &count_t);
+    int total = count_a + count_c + count_g + count_t;
+    int gc = count_g + count_c;
+
+    FILE *file = fopen(filename, "w");
+
+    if (file == NULL) {
+        printf("Failed to write to file: %s\n", filename);
+        return;
+    }
+
+    fprintf(file, "sequence,length,A,C,G,T,gc_percent\n");
+    fprintf(file, "%s,%d,%d,%d,%d,%d,%.1f\n",
+        sequence,
+        total,
+        count_a,
+        count_c,
+        count_g,
+        count_t,
+        total > 0 ? (100.0 * gc / total) : 0.0
+    );
+
+    fclose(file);
+}
+
 void clean_sequence(char *sequence) {
     int length = strlen(sequence);
     int j = 0;
@@ -180,6 +207,7 @@ int load_from_file(const char *filename, char *buffer, int max_len) {
 
 int main(int argc, char *argv[]) {
     char sequence[MAX_DNA_LENGTH];
+    char csv_filename[256] = "";
     int show_ascii = 1;
     int show_stats = 1;
     int show_summary = 0;
@@ -187,6 +215,7 @@ int main(int argc, char *argv[]) {
     int file_mode = 0;
     int do_reverse = 0;
     int do_complement = 0;
+    int do_csv = 0;
 
     if (argc >= 2) {
         for (int i = 1; i < argc; i++) {
@@ -201,6 +230,11 @@ int main(int argc, char *argv[]) {
                 show_ascii = 0;
                 show_stats = 0;
                 show_summary = 0;
+            } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
+                strncpy(csv_filename, argv[i + 1], sizeof(csv_filename) - 1);
+                csv_filename[sizeof(csv_filename) - 1] = '\0';
+                do_csv = 1;
+                i++;
             } else if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
                 if (!load_from_file(argv[i + 1], sequence, MAX_DNA_LENGTH)) {
                     printf("Failed to load file: %s\n", argv[i + 1]);
@@ -251,6 +285,10 @@ int main(int argc, char *argv[]) {
 
     if (show_summary) {
         print_summary(sequence);
+    }
+
+    if (do_csv) {
+        export_csv(csv_filename, sequence);
     }
 
     return 0;
