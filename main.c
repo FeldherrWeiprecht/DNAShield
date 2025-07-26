@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 #define MAX_DNA_LENGTH 1024
 #define MAX_FILENAME_LENGTH 256
@@ -15,6 +16,7 @@ typedef struct {
     int do_complement;
     int file_mode;
     int do_csv;
+    int mutate_count;
     char input_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
 } options;
@@ -77,6 +79,38 @@ void make_complement(char *sequence) {
     while (sequence[i] != '\0') {
         sequence[i] = complement_base(sequence[i]);
         i++;
+    }
+}
+
+char random_base(char exclude) {
+    char bases[] = { 'A', 'C', 'G', 'T' };
+    char new_base;
+
+    do {
+        new_base = bases[rand() % 4];
+    } while (new_base == exclude);
+
+    return new_base;
+}
+
+void mutate_sequence(char *sequence, int count) {
+    int length = strlen(sequence);
+
+    if (length == 0 || count <= 0) {
+        return;
+    }
+
+    int mutated[MAX_DNA_LENGTH] = { 0 };
+    int done = 0;
+
+    while (done < count) {
+        int pos = rand() % length;
+
+        if (mutated[pos] == 0 && is_valid_base(sequence[pos])) {
+            sequence[pos] = random_base(sequence[pos]);
+            mutated[pos] = 1;
+            done++;
+        }
     }
 }
 
@@ -236,6 +270,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_complement = 0;
     config.file_mode = 0;
     config.do_csv = 0;
+    config.mutate_count = 0;
     config.input_file[0] = '\0';
     config.csv_file[0] = '\0';
 
@@ -265,6 +300,9 @@ options parse_args(int argc, char *argv[]) {
             strncpy(config.csv_file, argv[i + 1], MAX_FILENAME_LENGTH - 1);
             config.do_csv = 1;
             i++;
+        } else if (strcmp(argv[i], "--mutate") == 0 && i + 1 < argc) {
+            config.mutate_count = atoi(argv[i + 1]);
+            i++;
         }
 
         i++;
@@ -275,6 +313,10 @@ options parse_args(int argc, char *argv[]) {
 
 void process_sequence(char *sequence, options config) {
     clean_sequence(sequence);
+
+    if (config.mutate_count > 0) {
+        mutate_sequence(sequence, config.mutate_count);
+    }
 
     if (config.do_complement == 1) {
         make_complement(sequence);
@@ -310,6 +352,8 @@ void process_sequence(char *sequence, options config) {
 }
 
 int main(int argc, char *argv[]) {
+    srand(time(NULL));
+
     char sequence[MAX_DNA_LENGTH];
     options config = parse_args(argc, argv);
 
