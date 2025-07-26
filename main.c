@@ -226,24 +226,6 @@ void clean_sequence(char *sequence) {
     sequence[j] = '\0';
 }
 
-int load_from_file(const char *filename, char *buffer, int max_len) {
-    FILE *file = fopen(filename, "r");
-
-    if (file == NULL) {
-        return 0;
-    }
-
-    if (fgets(buffer, max_len, file) == NULL) {
-        fclose(file);
-        return 0;
-    }
-
-    buffer[strcspn(buffer, "\n")] = '\0';
-
-    fclose(file);
-    return 1;
-}
-
 options parse_args(int argc, char *argv[]) {
     options config;
     config.show_ascii = 1;
@@ -291,28 +273,7 @@ options parse_args(int argc, char *argv[]) {
     return config;
 }
 
-int main(int argc, char *argv[]) {
-    char sequence[MAX_DNA_LENGTH];
-    options config = parse_args(argc, argv);
-
-    if (config.file_mode == 1) {
-        int ok = load_from_file(config.input_file, sequence, MAX_DNA_LENGTH);
-
-        if (ok == 0) {
-            printf("Failed to load file: %s\n", config.input_file);
-            return 1;
-        }
-    } else {
-        printf("Enter DNA sequence:\n");
-
-        if (fgets(sequence, sizeof(sequence), stdin) == NULL) {
-            printf("Input error.\n");
-            return 1;
-        }
-
-        sequence[strcspn(sequence, "\n")] = '\0';
-    }
-
+void process_sequence(char *sequence, options config) {
     clean_sequence(sequence);
 
     if (config.do_complement == 1) {
@@ -343,6 +304,39 @@ int main(int argc, char *argv[]) {
 
     if (config.do_csv == 1) {
         export_csv(config.csv_file, sequence);
+    }
+
+    printf("\n");
+}
+
+int main(int argc, char *argv[]) {
+    char sequence[MAX_DNA_LENGTH];
+    options config = parse_args(argc, argv);
+
+    if (config.file_mode == 1) {
+        FILE *file = fopen(config.input_file, "r");
+
+        if (file == NULL) {
+            printf("Failed to open file: %s\n", config.input_file);
+            return 1;
+        }
+
+        while (fgets(sequence, sizeof(sequence), file) != NULL) {
+            sequence[strcspn(sequence, "\n")] = '\0';
+            process_sequence(sequence, config);
+        }
+
+        fclose(file);
+    } else {
+        printf("Enter DNA sequence:\n");
+
+        if (fgets(sequence, sizeof(sequence), stdin) == NULL) {
+            printf("Input error.\n");
+            return 1;
+        }
+
+        sequence[strcspn(sequence, "\n")] = '\0';
+        process_sequence(sequence, config);
     }
 
     return 0;
