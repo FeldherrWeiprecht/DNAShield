@@ -67,22 +67,17 @@ char complement_base(char base) {
 
 void reverse_sequence(char *sequence) {
     int length = strlen(sequence);
-    int i = 0;
 
-    while (i < length / 2) {
+    for (int i = 0; i < length / 2; i++) {
         char temp = sequence[i];
         sequence[i] = sequence[length - 1 - i];
         sequence[length - 1 - i] = temp;
-        i++;
     }
 }
 
 void make_complement(char *sequence) {
-    int i = 0;
-
-    while (sequence[i] != '\0') {
+    for (int i = 0; sequence[i] != '\0'; i++) {
         sequence[i] = complement_base(sequence[i]);
-        i++;
     }
 }
 
@@ -100,7 +95,11 @@ char random_base(char exclude) {
 void mutate_sequence(char *sequence, int count) {
     int length = strlen(sequence);
 
-    if (length == 0 || count <= 0) {
+    if (length == 0) {
+        return;
+    }
+
+    if (count <= 0) {
         return;
     }
 
@@ -120,29 +119,24 @@ void mutate_sequence(char *sequence, int count) {
 
 void generate_random_sequence(char *sequence, int length) {
     char bases[] = { 'A', 'C', 'G', 'T' };
-    int i = 0;
 
-    while (i < length && i < MAX_DNA_LENGTH - 1) {
+    for (int i = 0; i < length && i < MAX_DNA_LENGTH - 1; i++) {
         sequence[i] = bases[rand() % 4];
-        i++;
     }
 
-    sequence[i] = '\0';
+    sequence[length < MAX_DNA_LENGTH - 1 ? length : MAX_DNA_LENGTH - 1] = '\0';
 }
 
 void clean_sequence(char *sequence) {
-    int i = 0;
     int j = 0;
 
-    while (sequence[i] != '\0') {
+    for (int i = 0; sequence[i] != '\0'; i++) {
         char base = toupper(sequence[i]);
 
         if (is_valid_base(base)) {
             sequence[j] = base;
             j++;
         }
-
-        i++;
     }
 
     sequence[j] = '\0';
@@ -156,6 +150,7 @@ int count_differences(const char *s1, const char *s2) {
         if (s1[i] != s2[i]) {
             diff++;
         }
+
         i++;
     }
 
@@ -182,11 +177,8 @@ void print_base(char base) {
 }
 
 void print_sequence(const char *sequence) {
-    int i = 0;
-
-    while (sequence[i] != '\0') {
+    for (int i = 0; sequence[i] != '\0'; i++) {
         print_base(sequence[i]);
-        i++;
     }
 
     printf("\n");
@@ -198,9 +190,7 @@ void count_bases(const char *sequence, int *a, int *c, int *g, int *t) {
     *g = 0;
     *t = 0;
 
-    int i = 0;
-
-    while (sequence[i] != '\0') {
+    for (int i = 0; sequence[i] != '\0'; i++) {
         if (sequence[i] == 'A') {
             (*a)++;
         } else if (sequence[i] == 'C') {
@@ -210,8 +200,6 @@ void count_bases(const char *sequence, int *a, int *c, int *g, int *t) {
         } else if (sequence[i] == 'T') {
             (*t)++;
         }
-
-        i++;
     }
 }
 
@@ -223,7 +211,7 @@ void print_stats(const char *sequence) {
 
     count_bases(sequence, &a, &c, &g, &t);
 
-    printf("Base statistics:\n");
+    printf("Base Statistics:\n");
     printf("A: %d\n", a);
     printf("C: %d\n", c);
     printf("G: %d\n", g);
@@ -241,8 +229,10 @@ void print_summary(const char *sequence) {
     int total = a + c + g + t;
     int gc = c + g;
 
-    printf("\nSummary: Length=%d A=%d C=%d G=%d T=%d GC%%=%.1f%%\n",
-           total, a, c, g, t, total > 0 ? (100.0 * gc / total) : 0.0);
+    printf("\nSummary:\n");
+    printf("Length: %d\n", total);
+    printf("A: %d  C: %d  G: %d  T: %d\n", a, c, g, t);
+    printf("GC Content: %.1f%%\n", total > 0 ? (100.0 * gc / total) : 0.0);
 }
 
 void print_json(const char *sequence) {
@@ -271,6 +261,7 @@ void print_json(const char *sequence) {
 
 options parse_args(int argc, char *argv[]) {
     options config;
+
     config.show_ascii = 1;
     config.show_stats = 1;
     config.show_summary = 0;
@@ -287,9 +278,7 @@ options parse_args(int argc, char *argv[]) {
     config.compare_seq1[0] = '\0';
     config.compare_seq2[0] = '\0';
 
-    int i = 1;
-
-    while (i < argc) {
+    for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--ascii") == 0) {
             config.show_ascii = 1;
         } else if (strcmp(argv[i], "--stats") == 0) {
@@ -321,8 +310,6 @@ options parse_args(int argc, char *argv[]) {
             config.compare_mode = 1;
             i += 2;
         }
-
-        i++;
     }
 
     return config;
@@ -348,7 +335,7 @@ void process_sequence(char *sequence, options config) {
     }
 
     if (config.show_ascii == 1) {
-        printf("Valid DNA sequence:\n");
+        printf("ASCII View:\n");
         print_sequence(sequence);
     }
 
@@ -364,6 +351,44 @@ void process_sequence(char *sequence, options config) {
     printf("\n");
 }
 
+void run_compare_mode(options config) {
+    clean_sequence(config.compare_seq1);
+    clean_sequence(config.compare_seq2);
+
+    int diff = count_differences(config.compare_seq1, config.compare_seq2);
+
+    printf("Comparing Sequences...\n\n");
+    printf("Sequence 1: %s\n", config.compare_seq1);
+    printf("Sequence 2: %s\n", config.compare_seq2);
+    printf("Differences: %d base(s) differ\n\n", diff);
+
+    if (config.show_json == 1) {
+        print_json(config.compare_seq1);
+        print_json(config.compare_seq2);
+    }
+
+    if (config.show_ascii == 1) {
+        printf("ASCII for Sequence 1:\n");
+        print_sequence(config.compare_seq1);
+
+        printf("ASCII for Sequence 2:\n");
+        print_sequence(config.compare_seq2);
+    }
+
+    if (config.show_stats == 1) {
+        printf("Stats for Sequence 1:\n");
+        print_stats(config.compare_seq1);
+
+        printf("Stats for Sequence 2:\n");
+        print_stats(config.compare_seq2);
+    }
+
+    if (config.show_summary == 1) {
+        print_summary(config.compare_seq1);
+        print_summary(config.compare_seq2);
+    }
+}
+
 int main(int argc, char *argv[]) {
     srand(time(NULL));
 
@@ -371,49 +396,21 @@ int main(int argc, char *argv[]) {
     options config = parse_args(argc, argv);
 
     if (config.compare_mode == 1) {
-        clean_sequence(config.compare_seq1);
-        clean_sequence(config.compare_seq2);
-        int diff = count_differences(config.compare_seq1, config.compare_seq2);
-
-        printf("Sequence 1: %s\n", config.compare_seq1);
-        printf("Sequence 2: %s\n", config.compare_seq2);
-        printf("Difference: %d base(s) differ\n\n", diff);
-
-        if (config.show_json == 1) {
-            print_json(config.compare_seq1);
-            print_json(config.compare_seq2);
-        }
-
-        if (config.show_ascii == 1) {
-            printf("ASCII for sequence 1:\n");
-            print_sequence(config.compare_seq1);
-            printf("ASCII for sequence 2:\n");
-            print_sequence(config.compare_seq2);
-        }
-
-        if (config.show_stats == 1) {
-            printf("Stats for sequence 1:\n");
-            print_stats(config.compare_seq1);
-            printf("Stats for sequence 2:\n");
-            print_stats(config.compare_seq2);
-        }
-
-        if (config.show_summary == 1) {
-            print_summary(config.compare_seq1);
-            print_summary(config.compare_seq2);
-        }
-
+        run_compare_mode(config);
         return 0;
     }
 
     if (config.random_length > 0) {
         generate_random_sequence(sequence, config.random_length);
         process_sequence(sequence, config);
-    } else if (config.file_mode == 1) {
+        return 0;
+    }
+
+    if (config.file_mode == 1) {
         FILE *file = fopen(config.input_file, "r");
 
         if (file == NULL) {
-            printf("Failed to open file: %s\n", config.input_file);
+            printf("Error: Could not open file '%s'\n", config.input_file);
             return 1;
         }
 
@@ -423,17 +420,19 @@ int main(int argc, char *argv[]) {
         }
 
         fclose(file);
-    } else {
-        printf("Enter DNA sequence:\n");
-
-        if (fgets(sequence, sizeof(sequence), stdin) == NULL) {
-            printf("Input error.\n");
-            return 1;
-        }
-
-        sequence[strcspn(sequence, "\n")] = '\0';
-        process_sequence(sequence, config);
+        return 0;
     }
+
+    printf("Please enter a DNA sequence:\n");
+
+    if (fgets(sequence, sizeof(sequence), stdin) == NULL) {
+        printf("Error: Could not read from input.\n");
+        return 1;
+    }
+
+    sequence[strcspn(sequence, "\n")] = '\0';
+
+    process_sequence(sequence, config);
 
     return 0;
 }
