@@ -19,6 +19,7 @@ typedef struct {
     int do_binary;
     int do_hex;
     int do_key;
+    int do_hash;
     int mutate_count;
     int random_length;
     int compare_mode;
@@ -349,10 +350,40 @@ void derive_key(const char *sequence) {
     }
 
     printf("\n=== Derived Key ===\n\n");
-    printf("DNA key (32 chars): ");
+    printf("DNA Key (32 chars): ");
 
     for (int i = 0; i < 16; i++) {
         printf("%02X", key[i]);
+    }
+
+    printf("\n");
+}
+
+void derive_hash(const char *sequence) {
+    unsigned char hash[32] = { 0 };
+
+    for (int i = 0; sequence[i] != '\0'; i++) {
+        unsigned char value = 0;
+
+        if (sequence[i] == 'A') {
+            value = 0xA3;
+        } else if (sequence[i] == 'C') {
+            value = 0xC5;
+        } else if (sequence[i] == 'G') {
+            value = 0xF1;
+        } else if (sequence[i] == 'T') {
+            value = 0x9E;
+        }
+
+        hash[i % 32] ^= value ^ (i * 17);
+        hash[(i * 3) % 32] ^= (value << (i % 5)) | (value >> ((8 - (i % 5)) % 8));
+    }
+
+    printf("\n=== Hash ===\n\n");
+    printf("DNA Hash (64 chars): ");
+
+    for (int i = 0; i < 32; i++) {
+        printf("%02X", hash[i]);
     }
 
     printf("\n");
@@ -372,6 +403,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_binary = 0;
     config.do_hex = 0;
     config.do_key = 0;
+    config.do_hash = 0;
     config.mutate_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
@@ -402,6 +434,8 @@ options parse_args(int argc, char *argv[]) {
             config.do_hex = 1;
         } else if (strcmp(argv[i], "--key") == 0) {
             config.do_key = 1;
+        } else if (strcmp(argv[i], "--hash") == 0) {
+            config.do_hash = 1;
         } else if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
             strncpy(config.input_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.file_mode = 1;
@@ -450,6 +484,10 @@ void process_sequence(char *sequence, options config) {
         derive_key(sequence);
     }
 
+    if (config.do_hash == 1) {
+        derive_hash(sequence);
+    }
+
     if (config.show_ascii == 1) {
         print_sequence(sequence);
     }
@@ -494,6 +532,11 @@ void run_compare_mode(options config) {
     if (config.do_key == 1) {
         derive_key(config.compare_seq1);
         derive_key(config.compare_seq2);
+    }
+
+    if (config.do_hash == 1) {
+        derive_hash(config.compare_seq1);
+        derive_hash(config.compare_seq2);
     }
 
     if (config.show_ascii == 1) {
