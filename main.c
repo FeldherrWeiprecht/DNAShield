@@ -18,8 +18,11 @@ typedef struct {
     int do_csv;
     int mutate_count;
     int random_length;
+    int compare_mode;
     char input_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
+    char compare_seq1[MAX_DNA_LENGTH];
+    char compare_seq2[MAX_DNA_LENGTH];
 } options;
 
 int is_valid_base(char base) {
@@ -127,6 +130,43 @@ void generate_random_sequence(char *sequence, int length) {
     sequence[i] = '\0';
 }
 
+void clean_sequence(char *sequence) {
+    int i = 0;
+    int j = 0;
+
+    while (sequence[i] != '\0') {
+        char base = toupper(sequence[i]);
+
+        if (is_valid_base(base)) {
+            sequence[j] = base;
+            j++;
+        }
+
+        i++;
+    }
+
+    sequence[j] = '\0';
+}
+
+int count_differences(const char *s1, const char *s2) {
+    int diff = 0;
+    int i = 0;
+
+    while (s1[i] != '\0' && s2[i] != '\0') {
+        if (s1[i] != s2[i]) {
+            diff++;
+        }
+        i++;
+    }
+
+    while (s1[i] != '\0' || s2[i] != '\0') {
+        diff++;
+        i++;
+    }
+
+    return diff;
+}
+
 void print_base(char base) {
     if (base == 'A') {
         printf("[A]");
@@ -229,50 +269,6 @@ void print_json(const char *sequence) {
     printf("}\n");
 }
 
-void export_csv(const char *filename, const char *sequence) {
-    int a;
-    int c;
-    int g;
-    int t;
-
-    count_bases(sequence, &a, &c, &g, &t);
-
-    int total = a + c + g + t;
-    int gc = c + g;
-
-    FILE *file = fopen(filename, "w");
-
-    if (file == NULL) {
-        printf("Failed to open CSV file: %s\n", filename);
-        return;
-    }
-
-    fprintf(file, "sequence,length,A,C,G,T,gc_percent\n");
-    fprintf(file, "%s,%d,%d,%d,%d,%d,%.1f\n",
-            sequence, total, a, c, g, t,
-            total > 0 ? (100.0 * gc / total) : 0.0);
-
-    fclose(file);
-}
-
-void clean_sequence(char *sequence) {
-    int i = 0;
-    int j = 0;
-
-    while (sequence[i] != '\0') {
-        char base = toupper(sequence[i]);
-
-        if (is_valid_base(base)) {
-            sequence[j] = base;
-            j++;
-        }
-
-        i++;
-    }
-
-    sequence[j] = '\0';
-}
-
 options parse_args(int argc, char *argv[]) {
     options config;
     config.show_ascii = 1;
@@ -285,8 +281,11 @@ options parse_args(int argc, char *argv[]) {
     config.do_csv = 0;
     config.mutate_count = 0;
     config.random_length = 0;
+    config.compare_mode = 0;
     config.input_file[0] = '\0';
     config.csv_file[0] = '\0';
+    config.compare_seq1[0] = '\0';
+    config.compare_seq2[0] = '\0';
 
     int i = 1;
 
@@ -310,16 +309,17 @@ options parse_args(int argc, char *argv[]) {
             strncpy(config.input_file, argv[i + 1], MAX_FILENAME_LENGTH - 1);
             config.file_mode = 1;
             i++;
-        } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
-            strncpy(config.csv_file, argv[i + 1], MAX_FILENAME_LENGTH - 1);
-            config.do_csv = 1;
-            i++;
         } else if (strcmp(argv[i], "--mutate") == 0 && i + 1 < argc) {
             config.mutate_count = atoi(argv[i + 1]);
             i++;
         } else if (strcmp(argv[i], "--random") == 0 && i + 1 < argc) {
             config.random_length = atoi(argv[i + 1]);
             i++;
+        } else if (strcmp(argv[i], "--compare") == 0 && i + 2 < argc) {
+            strncpy(config.compare_seq1, argv[i + 1], MAX_DNA_LENGTH - 1);
+            strncpy(config.compare_seq2, argv[i + 2], MAX_DNA_LENGTH - 1);
+            config.compare_mode = 1;
+            i += 2;
         }
 
         i++;
@@ -361,10 +361,6 @@ void process_sequence(char *sequence, options config) {
         print_summary(sequence);
     }
 
-    if (config.do_csv == 1) {
-        export_csv(config.csv_file, sequence);
-    }
-
     printf("\n");
 }
 
@@ -373,6 +369,42 @@ int main(int argc, char *argv[]) {
 
     char sequence[MAX_DNA_LENGTH];
     options config = parse_args(argc, argv);
+
+    if (config.compare_mode == 1) {
+        clean_sequence(config.compare_seq1);
+        clean_sequence(config.compare_seq2);
+        int diff = count_differences(config.compare_seq1, config.compare_seq2);
+
+        printf("Sequence 1: %s\n", config.compare_seq1);
+        printf("Sequence 2: %s\n", config.compare_seq2);
+        printf("Difference: %d base(s) differ\n\n", diff);
+
+        if (config.show_json == 1) {
+            print_json(config.compare_seq1);
+            print_json(config.compare_seq2);
+        }
+
+        if (config.show_ascii == 1) {
+            printf("ASCII for sequence 1:\n");
+            print_sequence(config.compare_seq1);
+            printf("ASCII for sequence 2:\n");
+            print_sequence(config.compare_seq2);
+        }
+
+        if (config.show_stats == 1) {
+            printf("Stats for sequence 1:\n");
+            print_stats(config.compare_seq1);
+            printf("Stats for sequence 2:\n");
+            print_stats(config.compare_seq2);
+        }
+
+        if (config.show_summary == 1) {
+            print_summary(config.compare_seq1);
+            print_summary(config.compare_seq2);
+        }
+
+        return 0;
+    }
 
     if (config.random_length > 0) {
         generate_random_sequence(sequence, config.random_length);
