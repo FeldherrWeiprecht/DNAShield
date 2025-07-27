@@ -18,6 +18,7 @@ typedef struct {
     int do_csv;
     int do_binary;
     int do_hex;
+    int do_key;
     int mutate_count;
     int random_length;
     int compare_mode;
@@ -328,6 +329,35 @@ void print_hex(const char *sequence) {
     printf("\n");
 }
 
+void derive_key(const char *sequence) {
+    unsigned char key[16] = { 0 };
+
+    for (int i = 0; sequence[i] != '\0'; i++) {
+        unsigned char value = 0;
+
+        if (sequence[i] == 'A') {
+            value = 0x1;
+        } else if (sequence[i] == 'C') {
+            value = 0x3;
+        } else if (sequence[i] == 'G') {
+            value = 0x7;
+        } else if (sequence[i] == 'T') {
+            value = 0xD;
+        }
+
+        key[i % 16] ^= value ^ (i * 31);
+    }
+
+    printf("\n=== Derived Key ===\n\n");
+    printf("DNA key (32 chars): ");
+
+    for (int i = 0; i < 16; i++) {
+        printf("%02X", key[i]);
+    }
+
+    printf("\n");
+}
+
 options parse_args(int argc, char *argv[]) {
     options config;
 
@@ -341,6 +371,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_csv = 0;
     config.do_binary = 0;
     config.do_hex = 0;
+    config.do_key = 0;
     config.mutate_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
@@ -369,6 +400,8 @@ options parse_args(int argc, char *argv[]) {
             config.do_binary = 1;
         } else if (strcmp(argv[i], "--hex") == 0) {
             config.do_hex = 1;
+        } else if (strcmp(argv[i], "--key") == 0) {
+            config.do_key = 1;
         } else if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
             strncpy(config.input_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.file_mode = 1;
@@ -413,6 +446,10 @@ void process_sequence(char *sequence, options config) {
         print_hex(sequence);
     }
 
+    if (config.do_key == 1) {
+        derive_key(sequence);
+    }
+
     if (config.show_ascii == 1) {
         print_sequence(sequence);
     }
@@ -452,6 +489,11 @@ void run_compare_mode(options config) {
     if (config.do_hex == 1) {
         print_hex(config.compare_seq1);
         print_hex(config.compare_seq2);
+    }
+
+    if (config.do_key == 1) {
+        derive_key(config.compare_seq1);
+        derive_key(config.compare_seq2);
     }
 
     if (config.show_ascii == 1) {
