@@ -17,6 +17,7 @@ typedef struct {
     int file_mode;
     int do_csv;
     int mutate_count;
+    int random_length;
     char input_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
 } options;
@@ -112,6 +113,18 @@ void mutate_sequence(char *sequence, int count) {
             done++;
         }
     }
+}
+
+void generate_random_sequence(char *sequence, int length) {
+    char bases[] = { 'A', 'C', 'G', 'T' };
+    int i = 0;
+
+    while (i < length && i < MAX_DNA_LENGTH - 1) {
+        sequence[i] = bases[rand() % 4];
+        i++;
+    }
+
+    sequence[i] = '\0';
 }
 
 void print_base(char base) {
@@ -271,6 +284,7 @@ options parse_args(int argc, char *argv[]) {
     config.file_mode = 0;
     config.do_csv = 0;
     config.mutate_count = 0;
+    config.random_length = 0;
     config.input_file[0] = '\0';
     config.csv_file[0] = '\0';
 
@@ -302,6 +316,9 @@ options parse_args(int argc, char *argv[]) {
             i++;
         } else if (strcmp(argv[i], "--mutate") == 0 && i + 1 < argc) {
             config.mutate_count = atoi(argv[i + 1]);
+            i++;
+        } else if (strcmp(argv[i], "--random") == 0 && i + 1 < argc) {
+            config.random_length = atoi(argv[i + 1]);
             i++;
         }
 
@@ -357,7 +374,10 @@ int main(int argc, char *argv[]) {
     char sequence[MAX_DNA_LENGTH];
     options config = parse_args(argc, argv);
 
-    if (config.file_mode == 1) {
+    if (config.random_length > 0) {
+        generate_random_sequence(sequence, config.random_length);
+        process_sequence(sequence, config);
+    } else if (config.file_mode == 1) {
         FILE *file = fopen(config.input_file, "r");
 
         if (file == NULL) {
