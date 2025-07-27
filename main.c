@@ -16,9 +16,12 @@ typedef struct {
     int do_complement;
     int file_mode;
     int do_csv;
+    int do_binary;
+    int do_hex;
     int mutate_count;
     int random_length;
     int compare_mode;
+
     char input_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
     char compare_seq1[MAX_DNA_LENGTH];
@@ -177,6 +180,8 @@ void print_base(char base) {
 }
 
 void print_sequence(const char *sequence) {
+    printf("\n=== ASCII View ===\n\n");
+
     for (int i = 0; sequence[i] != '\0'; i++) {
         print_base(sequence[i]);
     }
@@ -211,7 +216,7 @@ void print_stats(const char *sequence) {
 
     count_bases(sequence, &a, &c, &g, &t);
 
-    printf("Base Statistics:\n");
+    printf("\n=== Base Statistics ===\n\n");
     printf("A: %d\n", a);
     printf("C: %d\n", c);
     printf("G: %d\n", g);
@@ -229,10 +234,10 @@ void print_summary(const char *sequence) {
     int total = a + c + g + t;
     int gc = c + g;
 
-    printf("\nSummary:\n");
-    printf("Length: %d\n", total);
+    printf("\n=== Summary ===\n\n");
+    printf("Total Length : %d\n", total);
     printf("A: %d  C: %d  G: %d  T: %d\n", a, c, g, t);
-    printf("GC Content: %.1f%%\n", total > 0 ? (100.0 * gc / total) : 0.0);
+    printf("GC Content   : %.1f%%\n", total > 0 ? (100.0 * gc / total) : 0.0);
 }
 
 void print_json(const char *sequence) {
@@ -246,6 +251,7 @@ void print_json(const char *sequence) {
     int total = a + c + g + t;
     int gc = c + g;
 
+    printf("\n=== JSON Output ===\n\n");
     printf("{\n");
     printf("  \"length\": %d,\n", total);
     printf("  \"sequence\": \"%s\",\n", sequence);
@@ -259,6 +265,69 @@ void print_json(const char *sequence) {
     printf("}\n");
 }
 
+void print_binary(const char *sequence) {
+    printf("\n=== Binary Output ===\n\n");
+
+    for (int i = 0; sequence[i] != '\0'; i++) {
+        if (sequence[i] == 'A') {
+            printf("00");
+        } else if (sequence[i] == 'C') {
+            printf("01");
+        } else if (sequence[i] == 'G') {
+            printf("10");
+        } else if (sequence[i] == 'T') {
+            printf("11");
+        } else {
+            printf("??");
+        }
+    }
+
+    printf("\n");
+}
+
+void print_hex(const char *sequence) {
+    printf("\n=== Hex Output ===\n\n");
+
+    int i = 0;
+
+    while (sequence[i] != '\0') {
+        char code1 = 0;
+        char code2 = 0;
+
+        if (sequence[i] == 'A') {
+            code1 = 0;
+        } else if (sequence[i] == 'C') {
+            code1 = 1;
+        } else if (sequence[i] == 'G') {
+            code1 = 2;
+        } else if (sequence[i] == 'T') {
+            code1 = 3;
+        }
+
+        if (sequence[i + 1] != '\0') {
+            if (sequence[i + 1] == 'A') {
+                code2 = 0;
+            } else if (sequence[i + 1] == 'C') {
+                code2 = 1;
+            } else if (sequence[i + 1] == 'G') {
+                code2 = 2;
+            } else if (sequence[i + 1] == 'T') {
+                code2 = 3;
+            }
+
+            unsigned char combined = (code1 << 2) | code2;
+            printf("%X", combined);
+
+            i += 2;
+        } else {
+            printf("%X", code1 << 2);
+            break;
+        }
+    }
+
+    printf("\n");
+}
+
 options parse_args(int argc, char *argv[]) {
     options config;
 
@@ -270,6 +339,8 @@ options parse_args(int argc, char *argv[]) {
     config.do_complement = 0;
     config.file_mode = 0;
     config.do_csv = 0;
+    config.do_binary = 0;
+    config.do_hex = 0;
     config.mutate_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
@@ -294,21 +365,21 @@ options parse_args(int argc, char *argv[]) {
             config.do_reverse = 1;
         } else if (strcmp(argv[i], "--complement") == 0) {
             config.do_complement = 1;
+        } else if (strcmp(argv[i], "--binary") == 0) {
+            config.do_binary = 1;
+        } else if (strcmp(argv[i], "--hex") == 0) {
+            config.do_hex = 1;
         } else if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
-            strncpy(config.input_file, argv[i + 1], MAX_FILENAME_LENGTH - 1);
+            strncpy(config.input_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.file_mode = 1;
-            i++;
         } else if (strcmp(argv[i], "--mutate") == 0 && i + 1 < argc) {
-            config.mutate_count = atoi(argv[i + 1]);
-            i++;
+            config.mutate_count = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--random") == 0 && i + 1 < argc) {
-            config.random_length = atoi(argv[i + 1]);
-            i++;
+            config.random_length = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--compare") == 0 && i + 2 < argc) {
-            strncpy(config.compare_seq1, argv[i + 1], MAX_DNA_LENGTH - 1);
-            strncpy(config.compare_seq2, argv[i + 2], MAX_DNA_LENGTH - 1);
+            strncpy(config.compare_seq1, argv[++i], MAX_DNA_LENGTH - 1);
+            strncpy(config.compare_seq2, argv[++i], MAX_DNA_LENGTH - 1);
             config.compare_mode = 1;
-            i += 2;
         }
     }
 
@@ -334,13 +405,19 @@ void process_sequence(char *sequence, options config) {
         print_json(sequence);
     }
 
+    if (config.do_binary == 1) {
+        print_binary(sequence);
+    }
+
+    if (config.do_hex == 1) {
+        print_hex(sequence);
+    }
+
     if (config.show_ascii == 1) {
-        printf("ASCII View:\n");
         print_sequence(sequence);
     }
 
     if (config.show_stats == 1) {
-        printf("\n");
         print_stats(sequence);
     }
 
@@ -357,29 +434,39 @@ void run_compare_mode(options config) {
 
     int diff = count_differences(config.compare_seq1, config.compare_seq2);
 
-    printf("Comparing Sequences...\n\n");
+    printf("\n=== Comparing Sequences ===\n\n");
     printf("Sequence 1: %s\n", config.compare_seq1);
     printf("Sequence 2: %s\n", config.compare_seq2);
-    printf("Differences: %d base(s) differ\n\n", diff);
+    printf("Differences: %d base(s)\n", diff);
 
     if (config.show_json == 1) {
         print_json(config.compare_seq1);
         print_json(config.compare_seq2);
     }
 
+    if (config.do_binary == 1) {
+        print_binary(config.compare_seq1);
+        print_binary(config.compare_seq2);
+    }
+
+    if (config.do_hex == 1) {
+        print_hex(config.compare_seq1);
+        print_hex(config.compare_seq2);
+    }
+
     if (config.show_ascii == 1) {
-        printf("ASCII for Sequence 1:\n");
+        printf("\n--- ASCII Sequence 1 ---\n");
         print_sequence(config.compare_seq1);
 
-        printf("ASCII for Sequence 2:\n");
+        printf("\n--- ASCII Sequence 2 ---\n");
         print_sequence(config.compare_seq2);
     }
 
     if (config.show_stats == 1) {
-        printf("Stats for Sequence 1:\n");
+        printf("\n--- Statistics Sequence 1 ---\n");
         print_stats(config.compare_seq1);
 
-        printf("Stats for Sequence 2:\n");
+        printf("\n--- Statistics Sequence 2 ---\n");
         print_stats(config.compare_seq2);
     }
 
@@ -387,6 +474,8 @@ void run_compare_mode(options config) {
         print_summary(config.compare_seq1);
         print_summary(config.compare_seq2);
     }
+
+    printf("\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -423,10 +512,10 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    printf("Please enter a DNA sequence:\n");
+    printf("\nPlease enter a DNA sequence:\n\n");
 
     if (fgets(sequence, sizeof(sequence), stdin) == NULL) {
-        printf("Error: Could not read from input.\n");
+        printf("Error: Failed to read input.\n");
         return 1;
     }
 
