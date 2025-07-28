@@ -6,6 +6,7 @@
 
 #define MAX_DNA_LENGTH 1024
 #define MAX_FILENAME_LENGTH 256
+#define MAX_TEXT_LENGTH 512
 
 typedef struct {
     int show_ascii;
@@ -23,11 +24,13 @@ typedef struct {
     int mutate_count;
     int random_length;
     int compare_mode;
+    int encrypt_mode;
 
     char input_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
     char compare_seq1[MAX_DNA_LENGTH];
     char compare_seq2[MAX_DNA_LENGTH];
+    char encrypt_text[MAX_TEXT_LENGTH];
 } options;
 
 int is_valid_base(char base) {
@@ -367,8 +370,10 @@ void print_hex(const char *sequence) {
     printf("\n");
 }
 
-void derive_key(const char *sequence) {
-    unsigned char key[16] = { 0 };
+void derive_key_bytes(const char *sequence, unsigned char *key_out) {
+    for (int i = 0; i < 16; i++) {
+        key_out[i] = 0;
+    }
 
     for (int i = 0; sequence[i] != '\0'; i++) {
         unsigned char value = 0;
@@ -383,8 +388,14 @@ void derive_key(const char *sequence) {
             value = 0xD;
         }
 
-        key[i % 16] ^= value ^ (i * 31);
+        key_out[i % 16] ^= value ^ (i * 31);
     }
+}
+
+void derive_key(const char *sequence) {
+    unsigned char key[16];
+
+    derive_key_bytes(sequence, key);
 
     printf("\n=== Derived Key ===\n\n");
     printf("DNA Key (32 chars): ");
@@ -426,6 +437,23 @@ void derive_hash(const char *sequence) {
     printf("\n");
 }
 
+void encrypt_text_with_dna_key(const char *sequence, const char *text) {
+    unsigned char key[16];
+
+    derive_key_bytes(sequence, key);
+
+    printf("\n=== Encrypted Output ===\n\n");
+    printf("Plaintext : %s\n", text);
+    printf("Cipherhex : ");
+
+    for (int i = 0; text[i] != '\0'; i++) {
+        unsigned char encrypted = text[i] ^ key[i % 16];
+        printf("%02X", encrypted);
+    }
+
+    printf("\n");
+}
+
 options parse_args(int argc, char *argv[]) {
     options config;
 
@@ -444,10 +472,12 @@ options parse_args(int argc, char *argv[]) {
     config.mutate_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
+    config.encrypt_mode = 0;
     config.input_file[0] = '\0';
     config.csv_file[0] = '\0';
     config.compare_seq1[0] = '\0';
     config.compare_seq2[0] = '\0';
+    config.encrypt_text[0] = '\0';
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--ascii") == 0) {
@@ -487,36 +517,13 @@ options parse_args(int argc, char *argv[]) {
             strncpy(config.compare_seq1, argv[++i], MAX_DNA_LENGTH - 1);
             strncpy(config.compare_seq2, argv[++i], MAX_DNA_LENGTH - 1);
             config.compare_mode = 1;
+        } else if (strcmp(argv[i], "--encrypt") == 0 && i + 1 < argc) {
+            strncpy(config.encrypt_text, argv[++i], MAX_TEXT_LENGTH - 1);
+            config.encrypt_mode = 1;
         }
     }
 
     return config;
-}
-
-void export_csv(const char *filename, const char *sequence) {
-    int count_a, count_c, count_g, count_t;
-    count_bases(sequence, &count_a, &count_c, &count_g, &count_t);
-    int total = count_a + count_c + count_g + count_t;
-    int gc = count_g + count_c;
-
-    FILE *file = fopen(filename, "a");
-
-    if (file == NULL) {
-        printf("Failed to write to file: %s\n", filename);
-        return;
-    }
-
-    fprintf(file, "%s,%d,%d,%d,%d,%d,%.1f\n",
-        sequence,
-        total,
-        count_a,
-        count_c,
-        count_g,
-        count_t,
-        total > 0 ? (100.0 * gc / total) : 0.0
-    );
-
-    fclose(file);
 }
 
 void process_sequence(char *sequence, options config) {
@@ -552,6 +559,10 @@ void process_sequence(char *sequence, options config) {
 
     if (config.do_hash == 1) {
         derive_hash(sequence);
+    }
+
+    if (config.encrypt_mode == 1) {
+        encrypt_text_with_dna_key(sequence, config.encrypt_text);
     }
 
     if (config.show_ascii == 1) {
@@ -607,6 +618,11 @@ void run_compare_mode(options config) {
     if (config.do_hash == 1) {
         derive_hash(config.compare_seq1);
         derive_hash(config.compare_seq2);
+    }
+
+    if (config.encrypt_mode == 1) {
+        encrypt_text_with_dna_key(config.compare_seq1, config.encrypt_text);
+        encrypt_text_with_dna_key(config.compare_seq2, config.encrypt_text);
     }
 
     if (config.show_ascii == 1) {
