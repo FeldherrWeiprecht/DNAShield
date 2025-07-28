@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+#include <math.h>
 
 #define MAX_DNA_LENGTH 1024
 #define MAX_FILENAME_LENGTH 256
@@ -26,6 +27,7 @@ typedef struct {
     int do_qrcode;
     int do_bars;
     int do_compress;
+    int do_decompress;
     int mutate_count;
     int random_length;
     int compare_mode;
@@ -628,6 +630,40 @@ void compress_sequence(const char *input, char *output) {
     output[out] = '\0';
 }
 
+void decompress_sequence(const char *input, char *output) {
+    int in = 0;
+    int out = 0;
+
+    while (input[in] != '\0') {
+        char base = input[in];
+
+        if (!is_valid_base(base)) {
+            output[out] = '\0';
+            return;
+        }
+
+        in++;
+
+        int count = 0;
+
+        while (isdigit(input[in])) {
+            count = count * 10 + (input[in] - '0');
+            in++;
+        }
+
+        if (count == 0) {
+            output[out] = '\0';
+            return;
+        }
+
+        for (int i = 0; i < count && out < MAX_DNA_LENGTH - 1; i++) {
+            output[out++] = base;
+        }
+    }
+
+    output[out] = '\0';
+}
+
 void print_compressed(const char *sequence) {
     char compressed[MAX_COMPRESSED_LENGTH];
 
@@ -635,6 +671,15 @@ void print_compressed(const char *sequence) {
 
     printf("\n=== Compressed Sequence ===\n\n");
     printf("%s\n", compressed);
+}
+
+void print_decompressed(const char *sequence) {
+    char decompressed[MAX_DNA_LENGTH];
+
+    decompress_sequence(sequence, decompressed);
+
+    printf("\n=== Decompressed Sequence ===\n\n");
+    printf("%s\n", decompressed);
 }
 
 options parse_args(int argc, char *argv[]) {
@@ -655,6 +700,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_qrcode = 0;
     config.do_bars = 0;
     config.do_compress = 0;
+    config.do_decompress = 0;
     config.mutate_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
@@ -699,6 +745,8 @@ options parse_args(int argc, char *argv[]) {
             config.do_bars = 1;
         } else if (strcmp(argv[i], "--compress") == 0) {
             config.do_compress = 1;
+        } else if (strcmp(argv[i], "--decompress") == 0) {
+            config.do_decompress = 1;
         } else if (strcmp(argv[i], "--no-color") == 0) {
             config.no_color = 1;
         } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
@@ -728,74 +776,89 @@ options parse_args(int argc, char *argv[]) {
 }
 
 void process_sequence(char *sequence, options config) {
-    clean_sequence(sequence);
+    char work_seq[MAX_DNA_LENGTH];
+
+    strcpy(work_seq, sequence);
+
+    if (config.do_decompress == 1) {
+        char decompressed[MAX_DNA_LENGTH];
+
+        decompress_sequence(work_seq, decompressed);
+
+        printf("\n=== Decompressed Sequence ===\n\n");
+        printf("%s\n", decompressed);
+
+        strcpy(work_seq, decompressed);
+    } else {
+        clean_sequence(work_seq);
+    }
 
     if (config.mutate_count > 0) {
-        mutate_sequence(sequence, config.mutate_count);
+        mutate_sequence(work_seq, config.mutate_count);
     }
 
     if (config.do_complement == 1) {
-        make_complement(sequence);
+        make_complement(work_seq);
     }
 
     if (config.do_reverse == 1) {
-        reverse_sequence(sequence);
+        reverse_sequence(work_seq);
     }
 
     if (config.show_json == 1) {
-        print_json(sequence);
+        print_json(work_seq);
     }
 
     if (config.do_binary == 1) {
-        print_binary(sequence);
+        print_binary(work_seq);
     }
 
     if (config.do_hex == 1) {
-        print_hex(sequence);
+        print_hex(work_seq);
     }
 
     if (config.do_key == 1) {
-        derive_key(sequence);
+        derive_key(work_seq);
     }
 
     if (config.do_hash == 1) {
-        derive_hash(sequence);
+        derive_hash(work_seq);
     }
 
     if (config.encrypt_mode == 1) {
-        encrypt_text_with_dna_key(sequence, config.encrypt_text);
+        encrypt_text_with_dna_key(work_seq, config.encrypt_text);
     }
 
     if (config.decrypt_mode == 1) {
-        decrypt_hex_with_dna_key(sequence, config.decrypt_hex);
+        decrypt_hex_with_dna_key(work_seq, config.decrypt_hex);
     }
 
     if (config.do_qrcode == 1) {
-        print_qrcode(sequence);
+        print_qrcode(work_seq);
     }
 
     if (config.do_bars == 1) {
-        print_bars(sequence, config.no_color);
+        print_bars(work_seq, config.no_color);
     }
 
     if (config.do_compress == 1) {
-        print_compressed(sequence);
+        print_compressed(work_seq);
     }
 
     if (config.show_ascii == 1) {
-        print_sequence(sequence);
+        print_sequence(work_seq);
     }
 
     if (config.show_stats == 1) {
-        print_stats(sequence);
+        print_stats(work_seq);
     }
 
     if (config.show_summary == 1) {
-        print_summary(sequence);
+        print_summary(work_seq);
     }
 
     if (config.do_csv == 1) {
-        export_csv(config.csv_file, sequence);
+        export_csv(config.csv_file, work_seq);
     }
 
     printf("\n");
