@@ -25,12 +25,14 @@ typedef struct {
     int random_length;
     int compare_mode;
     int encrypt_mode;
+    int decrypt_mode;
 
     char input_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
     char compare_seq1[MAX_DNA_LENGTH];
     char compare_seq2[MAX_DNA_LENGTH];
     char encrypt_text[MAX_TEXT_LENGTH];
+    char decrypt_hex[MAX_TEXT_LENGTH];
 } options;
 
 int is_valid_base(char base) {
@@ -454,6 +456,32 @@ void encrypt_text_with_dna_key(const char *sequence, const char *text) {
     printf("\n");
 }
 
+void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string) {
+    unsigned char key[16];
+    derive_key_bytes(sequence, key);
+
+    printf("\n=== Decrypted Output ===\n\n");
+    printf("Cipherhex : %s\n", hex_string);
+    printf("Plaintext : ");
+
+    int len = strlen(hex_string);
+
+    for (int i = 0; i + 1 < len; i += 2) {
+        char hex_byte[3];
+        hex_byte[0] = hex_string[i];
+        hex_byte[1] = hex_string[i + 1];
+        hex_byte[2] = '\0';
+
+        unsigned int value;
+        sscanf(hex_byte, "%02X", &value);
+
+        unsigned char decrypted = (unsigned char)value ^ key[(i / 2) % 16];
+        printf("%c", decrypted);
+    }
+
+    printf("\n");
+}
+
 options parse_args(int argc, char *argv[]) {
     options config;
 
@@ -473,11 +501,13 @@ options parse_args(int argc, char *argv[]) {
     config.random_length = 0;
     config.compare_mode = 0;
     config.encrypt_mode = 0;
+    config.decrypt_mode = 0;
     config.input_file[0] = '\0';
     config.csv_file[0] = '\0';
     config.compare_seq1[0] = '\0';
     config.compare_seq2[0] = '\0';
     config.encrypt_text[0] = '\0';
+    config.decrypt_hex[0] = '\0';
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--ascii") == 0) {
@@ -520,6 +550,9 @@ options parse_args(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "--encrypt") == 0 && i + 1 < argc) {
             strncpy(config.encrypt_text, argv[++i], MAX_TEXT_LENGTH - 1);
             config.encrypt_mode = 1;
+        } else if (strcmp(argv[i], "--decrypt") == 0 && i + 1 < argc) {
+            strncpy(config.decrypt_hex, argv[++i], MAX_TEXT_LENGTH - 1);
+            config.decrypt_mode = 1;
         }
     }
 
@@ -563,6 +596,10 @@ void process_sequence(char *sequence, options config) {
 
     if (config.encrypt_mode == 1) {
         encrypt_text_with_dna_key(sequence, config.encrypt_text);
+    }
+
+    if (config.decrypt_mode == 1) {
+        decrypt_hex_with_dna_key(sequence, config.decrypt_hex);
     }
 
     if (config.show_ascii == 1) {
@@ -623,6 +660,11 @@ void run_compare_mode(options config) {
     if (config.encrypt_mode == 1) {
         encrypt_text_with_dna_key(config.compare_seq1, config.encrypt_text);
         encrypt_text_with_dna_key(config.compare_seq2, config.encrypt_text);
+    }
+
+    if (config.decrypt_mode == 1) {
+        decrypt_hex_with_dna_key(config.compare_seq1, config.decrypt_hex);
+        decrypt_hex_with_dna_key(config.compare_seq2, config.decrypt_hex);
     }
 
     if (config.show_ascii == 1) {
