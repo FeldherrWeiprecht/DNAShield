@@ -8,6 +8,7 @@
 #define MAX_FILENAME_LENGTH 256
 #define MAX_TEXT_LENGTH 512
 #define BAR_WIDTH 40
+#define MAX_COMPRESSED_LENGTH (MAX_DNA_LENGTH * 3)
 
 typedef struct {
     int show_ascii;
@@ -24,6 +25,7 @@ typedef struct {
     int do_hash;
     int do_qrcode;
     int do_bars;
+    int do_compress;
     int mutate_count;
     int random_length;
     int compare_mode;
@@ -593,6 +595,48 @@ void print_bars(const char *sequence, int no_color) {
     print_bar("T", t, max, "\033[33m", no_color);
 }
 
+void compress_sequence(const char *input, char *output) {
+    int i = 0;
+    int out = 0;
+
+    while (input[i] != '\0') {
+        char base = input[i];
+        int count = 1;
+
+        while (input[i + count] != '\0' && input[i + count] == base) {
+            count++;
+        }
+
+        output[out++] = base;
+
+        int digits = 0;
+        int temp = count;
+
+        do {
+            digits++;
+            temp = temp / 10;
+        } while (temp > 0);
+
+        for (int d = digits - 1; d >= 0; d--) {
+            int digit = (count / (int)pow(10, d)) % 10;
+            output[out++] = '0' + digit;
+        }
+
+        i = i + count;
+    }
+
+    output[out] = '\0';
+}
+
+void print_compressed(const char *sequence) {
+    char compressed[MAX_COMPRESSED_LENGTH];
+
+    compress_sequence(sequence, compressed);
+
+    printf("\n=== Compressed Sequence ===\n\n");
+    printf("%s\n", compressed);
+}
+
 options parse_args(int argc, char *argv[]) {
     options config;
 
@@ -610,6 +654,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_hash = 0;
     config.do_qrcode = 0;
     config.do_bars = 0;
+    config.do_compress = 0;
     config.mutate_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
@@ -652,6 +697,8 @@ options parse_args(int argc, char *argv[]) {
             config.do_qrcode = 1;
         } else if (strcmp(argv[i], "--bars") == 0) {
             config.do_bars = 1;
+        } else if (strcmp(argv[i], "--compress") == 0) {
+            config.do_compress = 1;
         } else if (strcmp(argv[i], "--no-color") == 0) {
             config.no_color = 1;
         } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
@@ -729,6 +776,10 @@ void process_sequence(char *sequence, options config) {
 
     if (config.do_bars == 1) {
         print_bars(sequence, config.no_color);
+    }
+
+    if (config.do_compress == 1) {
+        print_compressed(sequence);
     }
 
     if (config.show_ascii == 1) {
