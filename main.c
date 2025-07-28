@@ -7,6 +7,7 @@
 #define MAX_DNA_LENGTH 1024
 #define MAX_FILENAME_LENGTH 256
 #define MAX_TEXT_LENGTH 512
+#define BAR_WIDTH 40
 
 typedef struct {
     int show_ascii;
@@ -22,6 +23,7 @@ typedef struct {
     int do_key;
     int do_hash;
     int do_qrcode;
+    int do_bars;
     int mutate_count;
     int random_length;
     int compare_mode;
@@ -173,30 +175,6 @@ int count_differences(const char *s1, const char *s2) {
     return diff;
 }
 
-void print_base(char base) {
-    if (base == 'A') {
-        printf("[A]");
-    } else if (base == 'C') {
-        printf("[C]");
-    } else if (base == 'G') {
-        printf("[G]");
-    } else if (base == 'T') {
-        printf("[T]");
-    } else {
-        printf("[?]");
-    }
-}
-
-void print_sequence(const char *sequence) {
-    printf("\n=== ASCII View ===\n\n");
-
-    for (int i = 0; sequence[i] != '\0'; i++) {
-        print_base(sequence[i]);
-    }
-
-    printf("\n");
-}
-
 void count_bases(const char *sequence, int *a, int *c, int *g, int *t) {
     *a = 0;
     *c = 0;
@@ -216,6 +194,39 @@ void count_bases(const char *sequence, int *a, int *c, int *g, int *t) {
     }
 }
 
+void print_base(char base) {
+    if (base == 'A') {
+        printf("[A]");
+    } else if (base == 'C') {
+        printf("[C]");
+    } else if (base == 'G') {
+        printf("[G]");
+    } else if (base == 'T') {
+        printf("[T]");
+    } else {
+        printf("[?]");
+    }
+}
+
+void print_sequence(const char *sequence) {
+    printf("\n=== ASCII View ===\n\n");
+
+    int count = 0;
+
+    for (int i = 0; sequence[i] != '\0'; i++) {
+        print_base(sequence[i]);
+        count++;
+
+        if (count % 32 == 0) {
+            printf("\n");
+        }
+    }
+
+    if (count % 32 != 0) {
+        printf("\n");
+    }
+}
+
 void print_stats(const char *sequence) {
     int a;
     int c;
@@ -225,6 +236,7 @@ void print_stats(const char *sequence) {
     count_bases(sequence, &a, &c, &g, &t);
 
     printf("\n=== Base Statistics ===\n\n");
+
     printf("A: %d\n", a);
     printf("C: %d\n", c);
     printf("G: %d\n", g);
@@ -243,9 +255,10 @@ void print_summary(const char *sequence) {
     int gc = c + g;
 
     printf("\n=== Summary ===\n\n");
-    printf("Total Length : %d\n", total);
+
+    printf("Total Length: %d\n", total);
     printf("A: %d  C: %d  G: %d  T: %d\n", a, c, g, t);
-    printf("GC Content   : %.1f%%\n", total > 0 ? (100.0 * gc / total) : 0.0);
+    printf("GC Content: %.1f%%\n", total > 0 ? (100.0 * gc / total) : 0.0);
 }
 
 void print_json(const char *sequence) {
@@ -260,6 +273,7 @@ void print_json(const char *sequence) {
     int gc = c + g;
 
     printf("\n=== JSON Output ===\n\n");
+
     printf("{\n");
     printf("  \"length\": %d,\n", total);
     printf("  \"sequence\": \"%s\",\n", sequence);
@@ -293,6 +307,7 @@ void export_csv(const char *filename, const char *sequence) {
 
     fseek(file, 0, SEEK_END);
     long size = ftell(file);
+
     if (size == 0) {
         fprintf(file, "sequence,length,A,C,G,T,gc_percent\n");
     }
@@ -363,7 +378,7 @@ void print_hex(const char *sequence) {
             unsigned char combined = (code1 << 2) | code2;
             printf("%X", combined);
 
-            i += 2;
+            i = i + 2;
         } else {
             printf("%X", code1 << 2);
             break;
@@ -401,6 +416,7 @@ void derive_key(const char *sequence) {
     derive_key_bytes(sequence, key);
 
     printf("\n=== Derived Key ===\n\n");
+
     printf("DNA Key (32 chars): ");
 
     for (int i = 0; i < 16; i++) {
@@ -431,6 +447,7 @@ void derive_hash(const char *sequence) {
     }
 
     printf("\n=== Hash ===\n\n");
+
     printf("DNA Hash (64 chars): ");
 
     for (int i = 0; i < 32; i++) {
@@ -446,6 +463,7 @@ void encrypt_text_with_dna_key(const char *sequence, const char *text) {
     derive_key_bytes(sequence, key);
 
     printf("\n=== Encrypted Output ===\n\n");
+
     printf("Plaintext : %s\n", text);
     printf("Cipherhex : ");
 
@@ -459,16 +477,19 @@ void encrypt_text_with_dna_key(const char *sequence, const char *text) {
 
 void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string) {
     unsigned char key[16];
+
     derive_key_bytes(sequence, key);
 
     printf("\n=== Decrypted Output ===\n\n");
+
     printf("Cipherhex : %s\n", hex_string);
     printf("Plaintext : ");
 
     int len = strlen(hex_string);
 
-    for (int i = 0; i + 1 < len; i += 2) {
+    for (int i = 0; i + 1 < len; i = i + 2) {
         char hex_byte[3];
+
         hex_byte[0] = hex_string[i];
         hex_byte[1] = hex_string[i + 1];
         hex_byte[2] = '\0';
@@ -484,7 +505,7 @@ void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string) {
 }
 
 void print_qrcode(const char *sequence) {
-    printf("\n=== QR Code (symbolic) ===\n\n");
+    printf("\n=== QR Code ===\n\n");
 
     int len = strlen(sequence);
     int size = 21;
@@ -496,16 +517,69 @@ void print_qrcode(const char *sequence) {
                 printf("[ ]");
             } else {
                 char bit = sequence[block] % 2;
+
                 if (bit == 1) {
                     printf("[#]");
                 } else {
                     printf("[ ]");
                 }
+
                 block++;
             }
         }
+
         printf("\n");
     }
+}
+
+void print_bar(const char *label, int count, int max, const char *color) {
+    int bar_length = 0;
+
+    if (max > 0) {
+        bar_length = (count * BAR_WIDTH) / max;
+    }
+
+    printf("%s%s: ", color, label);
+
+    for (int i = 0; i < bar_length; i++) {
+        printf("#");
+    }
+
+    for (int i = bar_length; i < BAR_WIDTH; i++) {
+        printf(" ");
+    }
+
+    printf(" (%d)\033[0m\n", count);
+}
+
+void print_bars(const char *sequence) {
+    int a;
+    int c;
+    int g;
+    int t;
+
+    count_bases(sequence, &a, &c, &g, &t);
+
+    int max = a;
+
+    if (c > max) {
+        max = c;
+    }
+
+    if (g > max) {
+        max = g;
+    }
+
+    if (t > max) {
+        max = t;
+    }
+
+    printf("\n=== DNA Base Distribution Bars ===\n\n");
+
+    print_bar("A", a, max, "\033[31m");
+    print_bar("C", c, max, "\033[32m");
+    print_bar("G", g, max, "\033[34m");
+    print_bar("T", t, max, "\033[33m");
 }
 
 options parse_args(int argc, char *argv[]) {
@@ -524,11 +598,13 @@ options parse_args(int argc, char *argv[]) {
     config.do_key = 0;
     config.do_hash = 0;
     config.do_qrcode = 0;
+    config.do_bars = 0;
     config.mutate_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
     config.encrypt_mode = 0;
     config.decrypt_mode = 0;
+
     config.input_file[0] = '\0';
     config.csv_file[0] = '\0';
     config.compare_seq1[0] = '\0';
@@ -562,6 +638,8 @@ options parse_args(int argc, char *argv[]) {
             config.do_hash = 1;
         } else if (strcmp(argv[i], "--qrcode") == 0) {
             config.do_qrcode = 1;
+        } else if (strcmp(argv[i], "--bars") == 0) {
+            config.do_bars = 1;
         } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
             strncpy(config.csv_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.do_csv = 1;
@@ -635,6 +713,10 @@ void process_sequence(char *sequence, options config) {
         print_qrcode(sequence);
     }
 
+    if (config.do_bars == 1) {
+        print_bars(sequence);
+    }
+
     if (config.show_ascii == 1) {
         print_sequence(sequence);
     }
@@ -661,83 +743,20 @@ void run_compare_mode(options config) {
     int diff = count_differences(config.compare_seq1, config.compare_seq2);
 
     printf("\n=== Comparing Sequences ===\n\n");
+
     printf("Sequence 1: %s\n", config.compare_seq1);
     printf("Sequence 2: %s\n", config.compare_seq2);
     printf("Differences: %d base(s)\n", diff);
 
-    if (config.show_json == 1) {
-        print_json(config.compare_seq1);
-        print_json(config.compare_seq2);
-    }
-
-    if (config.do_binary == 1) {
-        print_binary(config.compare_seq1);
-        print_binary(config.compare_seq2);
-    }
-
-    if (config.do_hex == 1) {
-        print_hex(config.compare_seq1);
-        print_hex(config.compare_seq2);
-    }
-
-    if (config.do_key == 1) {
-        derive_key(config.compare_seq1);
-        derive_key(config.compare_seq2);
-    }
-
-    if (config.do_hash == 1) {
-        derive_hash(config.compare_seq1);
-        derive_hash(config.compare_seq2);
-    }
-
-    if (config.encrypt_mode == 1) {
-        encrypt_text_with_dna_key(config.compare_seq1, config.encrypt_text);
-        encrypt_text_with_dna_key(config.compare_seq2, config.encrypt_text);
-    }
-
-    if (config.decrypt_mode == 1) {
-        decrypt_hex_with_dna_key(config.compare_seq1, config.decrypt_hex);
-        decrypt_hex_with_dna_key(config.compare_seq2, config.decrypt_hex);
-    }
-
-    if (config.do_qrcode == 1) {
-        print_qrcode(config.compare_seq1);
-        print_qrcode(config.compare_seq2);
-    }
-
-    if (config.show_ascii == 1) {
-        printf("\n--- ASCII Sequence 1 ---\n");
-        print_sequence(config.compare_seq1);
-
-        printf("\n--- ASCII Sequence 2 ---\n");
-        print_sequence(config.compare_seq2);
-    }
-
-    if (config.show_stats == 1) {
-        printf("\n--- Statistics Sequence 1 ---\n");
-        print_stats(config.compare_seq1);
-
-        printf("\n--- Statistics Sequence 2 ---\n");
-        print_stats(config.compare_seq2);
-    }
-
-    if (config.show_summary == 1) {
-        print_summary(config.compare_seq1);
-        print_summary(config.compare_seq2);
-    }
-
-    if (config.do_csv == 1) {
-        export_csv(config.csv_file, config.compare_seq1);
-        export_csv(config.csv_file, config.compare_seq2);
-    }
-
-    printf("\n");
+    process_sequence(config.compare_seq1, config);
+    process_sequence(config.compare_seq2, config);
 }
 
 int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     char sequence[MAX_DNA_LENGTH];
+
     options config = parse_args(argc, argv);
 
     if (config.compare_mode == 1) {
@@ -761,6 +780,7 @@ int main(int argc, char *argv[]) {
 
         if (config.do_csv == 1) {
             FILE *csv = fopen(config.csv_file, "w");
+
             if (csv != NULL) {
                 fprintf(csv, "sequence,length,A,C,G,T,gc_percent\n");
                 fclose(csv);
