@@ -267,6 +267,43 @@ void print_json(const char *sequence) {
     printf("}\n");
 }
 
+void export_csv(const char *filename, const char *sequence) {
+    int count_a;
+    int count_c;
+    int count_g;
+    int count_t;
+
+    count_bases(sequence, &count_a, &count_c, &count_g, &count_t);
+
+    int total = count_a + count_c + count_g + count_t;
+    int gc = count_g + count_c;
+
+    FILE *file = fopen(filename, "a");
+
+    if (file == NULL) {
+        printf("Failed to write to file: %s\n", filename);
+        return;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    if (size == 0) {
+        fprintf(file, "sequence,length,A,C,G,T,gc_percent\n");
+    }
+
+    fprintf(file, "%s,%d,%d,%d,%d,%d,%.1f\n",
+        sequence,
+        total,
+        count_a,
+        count_c,
+        count_g,
+        count_t,
+        total > 0 ? (100.0 * gc / total) : 0.0
+    );
+
+    fclose(file);
+}
+
 void print_binary(const char *sequence) {
     printf("\n=== Binary Output ===\n\n");
 
@@ -436,6 +473,9 @@ options parse_args(int argc, char *argv[]) {
             config.do_key = 1;
         } else if (strcmp(argv[i], "--hash") == 0) {
             config.do_hash = 1;
+        } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
+            strncpy(config.csv_file, argv[++i], MAX_FILENAME_LENGTH - 1);
+            config.do_csv = 1;
         } else if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
             strncpy(config.input_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.file_mode = 1;
@@ -451,6 +491,32 @@ options parse_args(int argc, char *argv[]) {
     }
 
     return config;
+}
+
+void export_csv(const char *filename, const char *sequence) {
+    int count_a, count_c, count_g, count_t;
+    count_bases(sequence, &count_a, &count_c, &count_g, &count_t);
+    int total = count_a + count_c + count_g + count_t;
+    int gc = count_g + count_c;
+
+    FILE *file = fopen(filename, "a");
+
+    if (file == NULL) {
+        printf("Failed to write to file: %s\n", filename);
+        return;
+    }
+
+    fprintf(file, "%s,%d,%d,%d,%d,%d,%.1f\n",
+        sequence,
+        total,
+        count_a,
+        count_c,
+        count_g,
+        count_t,
+        total > 0 ? (100.0 * gc / total) : 0.0
+    );
+
+    fclose(file);
 }
 
 void process_sequence(char *sequence, options config) {
@@ -498,6 +564,10 @@ void process_sequence(char *sequence, options config) {
 
     if (config.show_summary == 1) {
         print_summary(sequence);
+    }
+
+    if (config.do_csv == 1) {
+        export_csv(config.csv_file, sequence);
     }
 
     printf("\n");
@@ -560,6 +630,11 @@ void run_compare_mode(options config) {
         print_summary(config.compare_seq2);
     }
 
+    if (config.do_csv == 1) {
+        export_csv(config.csv_file, config.compare_seq1);
+        export_csv(config.csv_file, config.compare_seq2);
+    }
+
     printf("\n");
 }
 
@@ -586,6 +661,14 @@ int main(int argc, char *argv[]) {
         if (file == NULL) {
             printf("Error: Could not open file '%s'\n", config.input_file);
             return 1;
+        }
+
+        if (config.do_csv == 1) {
+            FILE *csv = fopen(config.csv_file, "w");
+            if (csv != NULL) {
+                fprintf(csv, "sequence,length,A,C,G,T,gc_percent\n");
+                fclose(csv);
+            }
         }
 
         while (fgets(sequence, sizeof(sequence), file) != NULL) {
