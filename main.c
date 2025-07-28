@@ -21,6 +21,7 @@ typedef struct {
     int do_hex;
     int do_key;
     int do_hash;
+    int do_qrcode;
     int mutate_count;
     int random_length;
     int compare_mode;
@@ -482,6 +483,31 @@ void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string) {
     printf("\n");
 }
 
+void print_qrcode(const char *sequence) {
+    printf("\n=== QR Code (symbolic) ===\n\n");
+
+    int len = strlen(sequence);
+    int size = 21;
+    int block = 0;
+
+    for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+            if (block >= len) {
+                printf("[ ]");
+            } else {
+                char bit = sequence[block] % 2;
+                if (bit == 1) {
+                    printf("[#]");
+                } else {
+                    printf("[ ]");
+                }
+                block++;
+            }
+        }
+        printf("\n");
+    }
+}
+
 options parse_args(int argc, char *argv[]) {
     options config;
 
@@ -497,6 +523,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_hex = 0;
     config.do_key = 0;
     config.do_hash = 0;
+    config.do_qrcode = 0;
     config.mutate_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
@@ -533,6 +560,8 @@ options parse_args(int argc, char *argv[]) {
             config.do_key = 1;
         } else if (strcmp(argv[i], "--hash") == 0) {
             config.do_hash = 1;
+        } else if (strcmp(argv[i], "--qrcode") == 0) {
+            config.do_qrcode = 1;
         } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
             strncpy(config.csv_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.do_csv = 1;
@@ -602,6 +631,10 @@ void process_sequence(char *sequence, options config) {
         decrypt_hex_with_dna_key(sequence, config.decrypt_hex);
     }
 
+    if (config.do_qrcode == 1) {
+        print_qrcode(sequence);
+    }
+
     if (config.show_ascii == 1) {
         print_sequence(sequence);
     }
@@ -665,6 +698,11 @@ void run_compare_mode(options config) {
     if (config.decrypt_mode == 1) {
         decrypt_hex_with_dna_key(config.compare_seq1, config.decrypt_hex);
         decrypt_hex_with_dna_key(config.compare_seq2, config.decrypt_hex);
+    }
+
+    if (config.do_qrcode == 1) {
+        print_qrcode(config.compare_seq1);
+        print_qrcode(config.compare_seq2);
     }
 
     if (config.show_ascii == 1) {
