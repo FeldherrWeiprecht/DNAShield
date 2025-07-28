@@ -29,6 +29,7 @@ typedef struct {
     int compare_mode;
     int encrypt_mode;
     int decrypt_mode;
+    int no_color;
 
     char input_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
@@ -532,14 +533,18 @@ void print_qrcode(const char *sequence) {
     }
 }
 
-void print_bar(const char *label, int count, int max, const char *color) {
+void print_bar(const char *label, int count, int max, const char *color, int no_color) {
     int bar_length = 0;
 
     if (max > 0) {
         bar_length = (count * BAR_WIDTH) / max;
     }
 
-    printf("%s%s: ", color, label);
+    if (!no_color) {
+        printf("%s", color);
+    }
+
+    printf("%s: ", label);
 
     for (int i = 0; i < bar_length; i++) {
         printf("#");
@@ -549,10 +554,16 @@ void print_bar(const char *label, int count, int max, const char *color) {
         printf(" ");
     }
 
-    printf(" (%d)\033[0m\n", count);
+    printf(" (%d)", count);
+
+    if (!no_color) {
+        printf("\033[0m");
+    }
+
+    printf("\n");
 }
 
-void print_bars(const char *sequence) {
+void print_bars(const char *sequence, int no_color) {
     int a;
     int c;
     int g;
@@ -576,10 +587,10 @@ void print_bars(const char *sequence) {
 
     printf("\n=== DNA Base Distribution Bars ===\n\n");
 
-    print_bar("A", a, max, "\033[31m");
-    print_bar("C", c, max, "\033[32m");
-    print_bar("G", g, max, "\033[34m");
-    print_bar("T", t, max, "\033[33m");
+    print_bar("A", a, max, "\033[31m", no_color);
+    print_bar("C", c, max, "\033[32m", no_color);
+    print_bar("G", g, max, "\033[34m", no_color);
+    print_bar("T", t, max, "\033[33m", no_color);
 }
 
 options parse_args(int argc, char *argv[]) {
@@ -604,6 +615,7 @@ options parse_args(int argc, char *argv[]) {
     config.compare_mode = 0;
     config.encrypt_mode = 0;
     config.decrypt_mode = 0;
+    config.no_color = 0;
 
     config.input_file[0] = '\0';
     config.csv_file[0] = '\0';
@@ -640,6 +652,8 @@ options parse_args(int argc, char *argv[]) {
             config.do_qrcode = 1;
         } else if (strcmp(argv[i], "--bars") == 0) {
             config.do_bars = 1;
+        } else if (strcmp(argv[i], "--no-color") == 0) {
+            config.no_color = 1;
         } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
             strncpy(config.csv_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.do_csv = 1;
@@ -714,7 +728,7 @@ void process_sequence(char *sequence, options config) {
     }
 
     if (config.do_bars == 1) {
-        print_bars(sequence);
+        print_bars(sequence, config.no_color);
     }
 
     if (config.show_ascii == 1) {
