@@ -28,6 +28,7 @@ typedef struct {
     int do_bars;
     int do_compress;
     int do_decompress;
+    int do_export_stats;
     int mutate_count;
     int random_length;
     int compare_mode;
@@ -37,6 +38,7 @@ typedef struct {
 
     char input_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
+    char export_stats_file[MAX_FILENAME_LENGTH];
     char compare_seq1[MAX_DNA_LENGTH];
     char compare_seq2[MAX_DNA_LENGTH];
     char encrypt_text[MAX_TEXT_LENGTH];
@@ -326,6 +328,34 @@ void export_csv(const char *filename, const char *sequence) {
         count_t,
         total > 0 ? (100.0 * gc / total) : 0.0
     );
+
+    fclose(file);
+}
+
+void export_stats_json(const char *filename, const char *sequence) {
+    int a, c, g, t;
+
+    count_bases(sequence, &a, &c, &g, &t);
+
+    int total = a + c + g + t;
+    int gc = c + g;
+
+    FILE *file = fopen(filename, "w");
+
+    if (file == NULL) {
+        printf("Failed to write JSON stats to file: %s\n", filename);
+        return;
+    }
+
+    fprintf(file, "{\n");
+    fprintf(file, "  \"sequence\": \"%s\",\n", sequence);
+    fprintf(file, "  \"length\": %d,\n", total);
+    fprintf(file, "  \"A\": %d,\n", a);
+    fprintf(file, "  \"C\": %d,\n", c);
+    fprintf(file, "  \"G\": %d,\n", g);
+    fprintf(file, "  \"T\": %d,\n", t);
+    fprintf(file, "  \"gc_percent\": %.1f\n", total > 0 ? (100.0 * gc / total) : 0.0);
+    fprintf(file, "}\n");
 
     fclose(file);
 }
@@ -701,6 +731,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_bars = 0;
     config.do_compress = 0;
     config.do_decompress = 0;
+    config.do_export_stats = 0;
     config.mutate_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
@@ -710,6 +741,7 @@ options parse_args(int argc, char *argv[]) {
 
     config.input_file[0] = '\0';
     config.csv_file[0] = '\0';
+    config.export_stats_file[0] = '\0';
     config.compare_seq1[0] = '\0';
     config.compare_seq2[0] = '\0';
     config.encrypt_text[0] = '\0';
@@ -747,6 +779,9 @@ options parse_args(int argc, char *argv[]) {
             config.do_compress = 1;
         } else if (strcmp(argv[i], "--decompress") == 0) {
             config.do_decompress = 1;
+        } else if (strcmp(argv[i], "--export-stats") == 0 && i + 1 < argc) {
+            strncpy(config.export_stats_file, argv[++i], MAX_FILENAME_LENGTH - 1);
+            config.do_export_stats = 1;
         } else if (strcmp(argv[i], "--no-color") == 0) {
             config.no_color = 1;
         } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
@@ -859,6 +894,10 @@ void process_sequence(char *sequence, options config) {
 
     if (config.do_csv == 1) {
         export_csv(config.csv_file, work_seq);
+    }
+
+    if (config.do_export_stats == 1) {
+        export_stats_json(config.export_stats_file, work_seq);
     }
 
     printf("\n");
