@@ -10,6 +10,7 @@
 #define MAX_TEXT_LENGTH 512
 #define BAR_WIDTH 40
 #define MAX_COMPRESSED_LENGTH (MAX_DNA_LENGTH * 3)
+#define KEY_SIZE 16
 
 typedef struct {
     int show_ascii;
@@ -29,23 +30,28 @@ typedef struct {
     int do_compress;
     int do_decompress;
     int do_export_stats;
-    int do_encrypt_file;
     int mutate_count;
     int errors_count;
     int random_length;
     int compare_mode;
     int encrypt_mode;
     int decrypt_mode;
+    int encrypt_file_mode;
+    int decrypt_file_mode;
     int no_color;
 
     char input_file[MAX_FILENAME_LENGTH];
+    char output_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
     char export_stats_file[MAX_FILENAME_LENGTH];
-    char encrypt_file[MAX_FILENAME_LENGTH];
     char compare_seq1[MAX_DNA_LENGTH];
     char compare_seq2[MAX_DNA_LENGTH];
     char encrypt_text[MAX_TEXT_LENGTH];
     char decrypt_hex[MAX_TEXT_LENGTH];
+    char encrypt_file_input[MAX_FILENAME_LENGTH];
+    char encrypt_file_output[MAX_FILENAME_LENGTH];
+    char decrypt_file_input[MAX_FILENAME_LENGTH];
+    char decrypt_file_output[MAX_FILENAME_LENGTH];
 } options;
 
 int is_valid_base(char base) {
@@ -452,7 +458,7 @@ void print_hex(const char *sequence) {
 }
 
 void derive_key_bytes(const char *sequence, unsigned char *key_out) {
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < KEY_SIZE; i++) {
         key_out[i] = 0;
     }
 
@@ -469,12 +475,12 @@ void derive_key_bytes(const char *sequence, unsigned char *key_out) {
             value = 0xD;
         }
 
-        key_out[i % 16] ^= value ^ (i * 31);
+        key_out[i % KEY_SIZE] ^= value ^ (i * 31);
     }
 }
 
 void derive_key(const char *sequence) {
-    unsigned char key[16];
+    unsigned char key[KEY_SIZE];
 
     derive_key_bytes(sequence, key);
 
@@ -482,7 +488,7 @@ void derive_key(const char *sequence) {
 
     printf("DNA Key (32 chars): ");
 
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < KEY_SIZE; i++) {
         printf("%02X", key[i]);
     }
 
@@ -521,7 +527,7 @@ void derive_hash(const char *sequence) {
 }
 
 void encrypt_text_with_dna_key(const char *sequence, const char *text) {
-    unsigned char key[16];
+    unsigned char key[KEY_SIZE];
 
     derive_key_bytes(sequence, key);
 
@@ -531,7 +537,7 @@ void encrypt_text_with_dna_key(const char *sequence, const char *text) {
     printf("Cipherhex : ");
 
     for (int i = 0; text[i] != '\0'; i++) {
-        unsigned char encrypted = text[i] ^ key[i % 16];
+        unsigned char encrypted = text[i] ^ key[i % KEY_SIZE];
         printf("%02X", encrypted);
     }
 
@@ -539,7 +545,7 @@ void encrypt_text_with_dna_key(const char *sequence, const char *text) {
 }
 
 void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string) {
-    unsigned char key[16];
+    unsigned char key[KEY_SIZE];
 
     derive_key_bytes(sequence, key);
 
@@ -560,42 +566,11 @@ void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string) {
         unsigned int value;
         sscanf(hex_byte, "%02X", &value);
 
-        unsigned char decrypted = (unsigned char)value ^ key[(i / 2) % 16];
+        unsigned char decrypted = (unsigned char)value ^ key[(i / 2) % KEY_SIZE];
         printf("%c", decrypted);
     }
 
     printf("\n");
-}
-
-void encrypt_file_with_dna_key(const char *sequence, const char *filename) {
-    unsigned char key[16];
-
-    derive_key_bytes(sequence, key);
-
-    FILE *file = fopen(filename, "rb");
-
-    if (file == NULL) {
-        printf("Error: Could not open file '%s'\n", filename);
-        return;
-    }
-
-    printf("\n=== Encrypted File Output ===\n\n");
-
-    unsigned char buffer[256];
-    size_t bytesRead;
-    size_t total = 0;
-
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        for (size_t i = 0; i < bytesRead; i++) {
-            unsigned char encrypted = buffer[i] ^ key[(total + i) % 16];
-            printf("%02X", encrypted);
-        }
-        total += bytesRead;
-    }
-
-    printf("\n");
-
-    fclose(file);
 }
 
 void print_qrcode(const char *sequence) {
@@ -771,6 +746,84 @@ void print_decompressed(const char *sequence) {
     printf("%s\n", decompressed);
 }
 
+void encrypt_file(const char *dna_sequence, const char *input_filename, const char *output_filename) {
+    unsigned char key[KEY_SIZE];
+
+    derive_key_bytes(dna_sequence, key);
+
+    FILE *fin = fopen(input_filename, "rb");
+
+    if (fin == NULL) {
+        printf("Error: Could not open input file '%s'\n", input_filename);
+        return;
+    }
+
+    FILE *fout = fopen(output_filename, "wb");
+
+    if (fout == NULL) {
+        fclose(fin);
+        printf("Error: Could not open output file '%s'\n", output_filename);
+        return;
+    }
+
+    printf("\n=== File Encryption ===\n\n");
+    printf("Input : %s\n", input_filename);
+    printf("Output: %s\n", output_filename);
+
+    int i = 0;
+    int ch;
+
+    while ((ch = fgetc(fin)) != EOF) {
+        unsigned char encrypted = ((unsigned char)ch) ^ key[i % KEY_SIZE];
+        fputc(encrypted, fout);
+        i++;
+    }
+
+    fclose(fin);
+    fclose(fout);
+
+    printf("File encrypted successfully.\n");
+}
+
+void decrypt_file(const char *dna_sequence, const char *input_filename, const char *output_filename) {
+    unsigned char key[KEY_SIZE];
+
+    derive_key_bytes(dna_sequence, key);
+
+    FILE *fin = fopen(input_filename, "rb");
+
+    if (fin == NULL) {
+        printf("Error: Could not open input file '%s'\n", input_filename);
+        return;
+    }
+
+    FILE *fout = fopen(output_filename, "wb");
+
+    if (fout == NULL) {
+        fclose(fin);
+        printf("Error: Could not open output file '%s'\n", output_filename);
+        return;
+    }
+
+    printf("\n=== File Decryption ===\n\n");
+    printf("Input : %s\n", input_filename);
+    printf("Output: %s\n", output_filename);
+
+    int i = 0;
+    int ch;
+
+    while ((ch = fgetc(fin)) != EOF) {
+        unsigned char decrypted = ((unsigned char)ch) ^ key[i % KEY_SIZE];
+        fputc(decrypted, fout);
+        i++;
+    }
+
+    fclose(fin);
+    fclose(fout);
+
+    printf("File decrypted successfully.\n");
+}
+
 options parse_args(int argc, char *argv[]) {
     options config;
 
@@ -791,23 +844,28 @@ options parse_args(int argc, char *argv[]) {
     config.do_compress = 0;
     config.do_decompress = 0;
     config.do_export_stats = 0;
-    config.do_encrypt_file = 0;
     config.mutate_count = 0;
     config.errors_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
     config.encrypt_mode = 0;
     config.decrypt_mode = 0;
+    config.encrypt_file_mode = 0;
+    config.decrypt_file_mode = 0;
     config.no_color = 0;
 
     config.input_file[0] = '\0';
+    config.output_file[0] = '\0';
     config.csv_file[0] = '\0';
     config.export_stats_file[0] = '\0';
-    config.encrypt_file[0] = '\0';
     config.compare_seq1[0] = '\0';
     config.compare_seq2[0] = '\0';
     config.encrypt_text[0] = '\0';
     config.decrypt_hex[0] = '\0';
+    config.encrypt_file_input[0] = '\0';
+    config.encrypt_file_output[0] = '\0';
+    config.decrypt_file_input[0] = '\0';
+    config.decrypt_file_output[0] = '\0';
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--ascii") == 0) {
@@ -868,9 +926,14 @@ options parse_args(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "--decrypt") == 0 && i + 1 < argc) {
             strncpy(config.decrypt_hex, argv[++i], MAX_TEXT_LENGTH - 1);
             config.decrypt_mode = 1;
-        } else if (strcmp(argv[i], "--encrypt-file") == 0 && i + 1 < argc) {
-            strncpy(config.encrypt_file, argv[++i], MAX_FILENAME_LENGTH - 1);
-            config.do_encrypt_file = 1;
+        } else if (strcmp(argv[i], "--encrypt-file") == 0 && i + 2 < argc) {
+            strncpy(config.encrypt_file_input, argv[++i], MAX_FILENAME_LENGTH - 1);
+            strncpy(config.encrypt_file_output, argv[++i], MAX_FILENAME_LENGTH - 1);
+            config.encrypt_file_mode = 1;
+        } else if (strcmp(argv[i], "--decrypt-file") == 0 && i + 2 < argc) {
+            strncpy(config.decrypt_file_input, argv[++i], MAX_FILENAME_LENGTH - 1);
+            strncpy(config.decrypt_file_output, argv[++i], MAX_FILENAME_LENGTH - 1);
+            config.decrypt_file_mode = 1;
         }
     }
 
@@ -909,10 +972,6 @@ void process_sequence(char *sequence, options config) {
 
     if (config.do_reverse == 1) {
         reverse_sequence(work_seq);
-    }
-
-    if (config.do_encrypt_file == 1) {
-        encrypt_file_with_dna_key(work_seq, config.encrypt_file);
     }
 
     if (config.show_json == 1) {
@@ -1009,6 +1068,30 @@ int main(int argc, char *argv[]) {
     if (config.random_length > 0) {
         generate_random_sequence(sequence, config.random_length);
         process_sequence(sequence, config);
+        return 0;
+    }
+
+    if (config.encrypt_file_mode == 1) {
+        printf("\nPlease enter a DNA sequence (for encryption):\n\n");
+        if (fgets(sequence, sizeof(sequence), stdin) == NULL) {
+            printf("Error: Failed to read input.\n");
+            return 1;
+        }
+        sequence[strcspn(sequence, "\n")] = '\0';
+        clean_sequence(sequence);
+        encrypt_file(sequence, config.encrypt_file_input, config.encrypt_file_output);
+        return 0;
+    }
+
+    if (config.decrypt_file_mode == 1) {
+        printf("\nPlease enter a DNA sequence (for decryption):\n\n");
+        if (fgets(sequence, sizeof(sequence), stdin) == NULL) {
+            printf("Error: Failed to read input.\n");
+            return 1;
+        }
+        sequence[strcspn(sequence, "\n")] = '\0';
+        clean_sequence(sequence);
+        decrypt_file(sequence, config.decrypt_file_input, config.decrypt_file_output);
         return 0;
     }
 
