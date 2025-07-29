@@ -17,6 +17,7 @@
 #define MAX_FILENAME_LENGTH 256
 #define MAX_TEXT_LENGTH 512
 #define BAR_WIDTH 40
+#define BAR_HEIGHT 20
 #define MAX_COMPRESSED_LENGTH (MAX_DNA_LENGTH * 3)
 #define KEY_SIZE 16
 #define MAX_MATCHES 128
@@ -35,7 +36,8 @@ typedef struct {
     int do_key;
     int do_hash;
     int do_qrcode;
-    int do_bars;
+    int do_histogram;
+    int histogram_vertical;
     int do_compress;
     int do_decompress;
     int do_export_stats;
@@ -680,64 +682,84 @@ void print_qrcode(const char *sequence) {
     }
 }
 
-void print_bar(const char *label, int count, int max, const char *color, int no_color) {
-    int bar_length = 0;
-
-    if (max > 0) {
-        bar_length = (count * BAR_WIDTH) / max;
-    }
-
-    if (!no_color) {
-        printf("%s", color);
-    }
-
-    printf("%s: ", label);
-
-    for (int i = 0; i < bar_length; i++) {
-        printf("#");
-    }
-
-    for (int i = bar_length; i < BAR_WIDTH; i++) {
-        printf(" ");
-    }
-
-    printf(" (%d)", count);
-
-    if (!no_color) {
-        printf("\033[0m");
-    }
-
-    printf("\n");
-}
-
-void print_bars(const char *sequence, int no_color) {
-    int a;
-    int c;
-    int g;
-    int t;
-
+void print_histogram_horizontal(const char *sequence, int no_color) {
+    int a, c, g, t;
     count_bases(sequence, &a, &c, &g, &t);
 
     int max = a;
+    if (c > max) { max = c; }
+    if (g > max) { max = g; }
+    if (t > max) { max = t; }
 
-    if (c > max) {
-        max = c;
+    printf("\n=== DNA Base Distribution Histogram (horizontal) ===\n\n");
+
+    if (!no_color) { printf("\033[31m"); }
+    printf("A: ");
+    for (int i = 0; i < (max > 0 ? (a * BAR_WIDTH) / max : 0); i++) { printf("#"); }
+    for (int i = (max > 0 ? (a * BAR_WIDTH) / max : 0); i < BAR_WIDTH; i++) { printf(" "); }
+    if (!no_color) { printf("\033[0m"); }
+    printf(" (%d)\n", a);
+
+    if (!no_color) { printf("\033[32m"); }
+    printf("C: ");
+    for (int i = 0; i < (max > 0 ? (c * BAR_WIDTH) / max : 0); i++) { printf("#"); }
+    for (int i = (max > 0 ? (c * BAR_WIDTH) / max : 0); i < BAR_WIDTH; i++) { printf(" "); }
+    if (!no_color) { printf("\033[0m"); }
+    printf(" (%d)\n", c);
+
+    if (!no_color) { printf("\033[34m"); }
+    printf("G: ");
+    for (int i = 0; i < (max > 0 ? (g * BAR_WIDTH) / max : 0); i++) { printf("#"); }
+    for (int i = (max > 0 ? (g * BAR_WIDTH) / max : 0); i < BAR_WIDTH; i++) { printf(" "); }
+    if (!no_color) { printf("\033[0m"); }
+    printf(" (%d)\n", g);
+
+    if (!no_color) { printf("\033[33m"); }
+    printf("T: ");
+    for (int i = 0; i < (max > 0 ? (t * BAR_WIDTH) / max : 0); i++) { printf("#"); }
+    for (int i = (max > 0 ? (t * BAR_WIDTH) / max : 0); i < BAR_WIDTH; i++) { printf(" "); }
+    if (!no_color) { printf("\033[0m"); }
+    printf(" (%d)\n", t);
+}
+
+void print_histogram_vertical(const char *sequence, int no_color) {
+    int a, c, g, t;
+    count_bases(sequence, &a, &c, &g, &t);
+
+    int max = a;
+    if (c > max) { max = c; }
+    if (g > max) { max = g; }
+    if (t > max) { max = t; }
+
+    printf("\n=== DNA Base Distribution Histogram (vertical) ===\n\n");
+
+    for (int row = BAR_HEIGHT; row > 0; row--) {
+        if (!no_color) { printf("\033[31m"); }
+        printf(" ");
+        if ((a * BAR_HEIGHT) / (max > 0 ? max : 1) >= row) { printf("#"); } else { printf(" "); }
+        if (!no_color) { printf("\033[0m"); }
+
+        if (!no_color) { printf("\033[32m"); }
+        printf(" ");
+        if ((c * BAR_HEIGHT) / (max > 0 ? max : 1) >= row) { printf("#"); } else { printf(" "); }
+        if (!no_color) { printf("\033[0m"); }
+
+        if (!no_color) { printf("\033[34m"); }
+        printf(" ");
+        if ((g * BAR_HEIGHT) / (max > 0 ? max : 1) >= row) { printf("#"); } else { printf(" "); }
+        if (!no_color) { printf("\033[0m"); }
+
+        if (!no_color) { printf("\033[33m"); }
+        printf(" ");
+        if ((t * BAR_HEIGHT) / (max > 0 ? max : 1) >= row) { printf("#"); } else { printf(" "); }
+        if (!no_color) { printf("\033[0m"); }
+
+        printf("\n");
     }
 
-    if (g > max) {
-        max = g;
-    }
+    printf(" A C G T\n");
 
-    if (t > max) {
-        max = t;
-    }
-
-    printf("\n=== DNA Base Distribution Bars ===\n\n");
-
-    print_bar("A", a, max, "\033[31m", no_color);
-    print_bar("C", c, max, "\033[32m", no_color);
-    print_bar("G", g, max, "\033[34m", no_color);
-    print_bar("T", t, max, "\033[33m", no_color);
+    printf("(%d %d %d %d)\n", a, c, g, t);
 }
 
 void compress_sequence(const char *input, char *output) {
@@ -945,7 +967,8 @@ options parse_args(int argc, char *argv[]) {
     config.do_key = 0;
     config.do_hash = 0;
     config.do_qrcode = 0;
-    config.do_bars = 0;
+    config.do_histogram = 0;
+    config.histogram_vertical = 0;
     config.do_compress = 0;
     config.do_decompress = 0;
     config.do_export_stats = 0;
@@ -1002,8 +1025,14 @@ options parse_args(int argc, char *argv[]) {
             config.do_hash = 1;
         } else if (strcmp(argv[i], "--qrcode") == 0) {
             config.do_qrcode = 1;
-        } else if (strcmp(argv[i], "--bars") == 0) {
-            config.do_bars = 1;
+        } else if (strcmp(argv[i], "--histogram") == 0) {
+            config.do_histogram = 1;
+        } else if (strcmp(argv[i], "--histogram-vertical") == 0) {
+            config.do_histogram = 1;
+            config.histogram_vertical = 1;
+        } else if (strcmp(argv[i], "--histogram-horizontal") == 0) {
+            config.do_histogram = 1;
+            config.histogram_vertical = 0;
         } else if (strcmp(argv[i], "--compress") == 0) {
             config.do_compress = 1;
         } else if (strcmp(argv[i], "--decompress") == 0) {
@@ -1126,8 +1155,12 @@ void process_sequence(char *sequence, options config) {
         print_qrcode(work_seq);
     }
 
-    if (config.do_bars == 1) {
-        print_bars(work_seq, config.no_color);
+    if (config.do_histogram == 1) {
+        if (config.histogram_vertical) {
+            print_histogram_vertical(work_seq, config.no_color);
+        } else {
+            print_histogram_horizontal(work_seq, config.no_color);
+        }
     }
 
     if (config.do_compress == 1) {
