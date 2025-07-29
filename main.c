@@ -30,6 +30,7 @@ typedef struct {
     int do_decompress;
     int do_export_stats;
     int mutate_count;
+    int errors_count;
     int random_length;
     int compare_mode;
     int encrypt_mode;
@@ -132,6 +133,31 @@ void mutate_sequence(char *sequence, int count) {
         if (mutated[pos] == 0 && is_valid_base(sequence[pos])) {
             sequence[pos] = random_base(sequence[pos]);
             mutated[pos] = 1;
+            done++;
+        }
+    }
+}
+
+void inject_errors(char *sequence, int count) {
+    int length = strlen(sequence);
+
+    if (length == 0) {
+        return;
+    }
+
+    if (count <= 0) {
+        return;
+    }
+
+    int errored[MAX_DNA_LENGTH] = { 0 };
+    int done = 0;
+
+    while (done < count) {
+        int pos = rand() % length;
+
+        if (errored[pos] == 0 && is_valid_base(sequence[pos])) {
+            sequence[pos] = random_base(sequence[pos]);
+            errored[pos] = 1;
             done++;
         }
     }
@@ -733,6 +759,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_decompress = 0;
     config.do_export_stats = 0;
     config.mutate_count = 0;
+    config.errors_count = 0;
     config.random_length = 0;
     config.compare_mode = 0;
     config.encrypt_mode = 0;
@@ -782,6 +809,8 @@ options parse_args(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "--export-stats") == 0 && i + 1 < argc) {
             strncpy(config.export_stats_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.do_export_stats = 1;
+        } else if (strcmp(argv[i], "--errors") == 0 && i + 1 < argc) {
+            config.errors_count = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--no-color") == 0) {
             config.no_color = 1;
         } else if (strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
@@ -830,6 +859,10 @@ void process_sequence(char *sequence, options config) {
 
     if (config.mutate_count > 0) {
         mutate_sequence(work_seq, config.mutate_count);
+    }
+
+    if (config.errors_count > 0) {
+        inject_errors(work_seq, config.errors_count);
     }
 
     if (config.do_complement == 1) {
