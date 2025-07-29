@@ -40,6 +40,7 @@ typedef struct {
     int do_decompress;
     int do_export_stats;
     int do_find;
+    int do_complexity;
     int mutate_count;
     int errors_count;
     int random_length;
@@ -902,6 +903,32 @@ void decrypt_file(const char *dna_sequence, const char *input_filename, const ch
     printf("File decrypted successfully.\n");
 }
 
+void print_complexity(const char *sequence) {
+    int a, c, g, t;
+    count_bases(sequence, &a, &c, &g, &t);
+    int total = a + c + g + t;
+
+    if (total == 0) {
+        printf("\n=== Sequence Complexity ===\n\n");
+        printf("Sequence is empty.\n");
+        return;
+    }
+
+    double pa = (double)a / total;
+    double pc = (double)c / total;
+    double pg = (double)g / total;
+    double pt = (double)t / total;
+
+    double entropy = 0.0;
+    if (pa > 0) { entropy -= pa * log2(pa); }
+    if (pc > 0) { entropy -= pc * log2(pc); }
+    if (pg > 0) { entropy -= pg * log2(pg); }
+    if (pt > 0) { entropy -= pt * log2(pt); }
+
+    printf("\n=== Sequence Complexity ===\n\n");
+    printf("Shannon Entropy: %.4f bits/base (max: 2.0000)\n", entropy);
+}
+
 options parse_args(int argc, char *argv[]) {
     options config;
 
@@ -923,6 +950,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_decompress = 0;
     config.do_export_stats = 0;
     config.do_find = 0;
+    config.do_complexity = 0;
     config.mutate_count = 0;
     config.errors_count = 0;
     config.random_length = 0;
@@ -1020,6 +1048,8 @@ options parse_args(int argc, char *argv[]) {
             config.decrypt_file_mode = 1;
         } else if (strcmp(argv[i], "--stdin") == 0) {
             config.stdin_mode = 1;
+        } else if (strcmp(argv[i], "--complexity") == 0) {
+            config.do_complexity = 1;
         }
     }
 
@@ -1102,6 +1132,10 @@ void process_sequence(char *sequence, options config) {
 
     if (config.do_compress == 1) {
         print_compressed(work_seq);
+    }
+
+    if (config.do_complexity == 1) {
+        print_complexity(work_seq);
     }
 
     if (config.show_ascii == 1) {
