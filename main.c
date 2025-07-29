@@ -29,6 +29,7 @@ typedef struct {
     int do_compress;
     int do_decompress;
     int do_export_stats;
+    int do_encrypt_file;
     int mutate_count;
     int errors_count;
     int random_length;
@@ -40,6 +41,7 @@ typedef struct {
     char input_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
     char export_stats_file[MAX_FILENAME_LENGTH];
+    char encrypt_file[MAX_FILENAME_LENGTH];
     char compare_seq1[MAX_DNA_LENGTH];
     char compare_seq2[MAX_DNA_LENGTH];
     char encrypt_text[MAX_TEXT_LENGTH];
@@ -565,6 +567,37 @@ void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string) {
     printf("\n");
 }
 
+void encrypt_file_with_dna_key(const char *sequence, const char *filename) {
+    unsigned char key[16];
+
+    derive_key_bytes(sequence, key);
+
+    FILE *file = fopen(filename, "rb");
+
+    if (file == NULL) {
+        printf("Error: Could not open file '%s'\n", filename);
+        return;
+    }
+
+    printf("\n=== Encrypted File Output ===\n\n");
+
+    unsigned char buffer[256];
+    size_t bytesRead;
+    size_t total = 0;
+
+    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        for (size_t i = 0; i < bytesRead; i++) {
+            unsigned char encrypted = buffer[i] ^ key[(total + i) % 16];
+            printf("%02X", encrypted);
+        }
+        total += bytesRead;
+    }
+
+    printf("\n");
+
+    fclose(file);
+}
+
 void print_qrcode(const char *sequence) {
     printf("\n=== QR Code ===\n\n");
 
@@ -758,6 +791,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_compress = 0;
     config.do_decompress = 0;
     config.do_export_stats = 0;
+    config.do_encrypt_file = 0;
     config.mutate_count = 0;
     config.errors_count = 0;
     config.random_length = 0;
@@ -769,6 +803,7 @@ options parse_args(int argc, char *argv[]) {
     config.input_file[0] = '\0';
     config.csv_file[0] = '\0';
     config.export_stats_file[0] = '\0';
+    config.encrypt_file[0] = '\0';
     config.compare_seq1[0] = '\0';
     config.compare_seq2[0] = '\0';
     config.encrypt_text[0] = '\0';
@@ -833,6 +868,9 @@ options parse_args(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "--decrypt") == 0 && i + 1 < argc) {
             strncpy(config.decrypt_hex, argv[++i], MAX_TEXT_LENGTH - 1);
             config.decrypt_mode = 1;
+        } else if (strcmp(argv[i], "--encrypt-file") == 0 && i + 1 < argc) {
+            strncpy(config.encrypt_file, argv[++i], MAX_FILENAME_LENGTH - 1);
+            config.do_encrypt_file = 1;
         }
     }
 
@@ -871,6 +909,10 @@ void process_sequence(char *sequence, options config) {
 
     if (config.do_reverse == 1) {
         reverse_sequence(work_seq);
+    }
+
+    if (config.do_encrypt_file == 1) {
+        encrypt_file_with_dna_key(work_seq, config.encrypt_file);
     }
 
     if (config.show_json == 1) {
