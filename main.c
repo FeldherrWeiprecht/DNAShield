@@ -5,6 +5,14 @@
 #include <time.h>
 #include <math.h>
 
+#ifdef _WIN32
+#include <io.h>
+#define isatty _isatty
+#define fileno _fileno
+#else
+#include <unistd.h>
+#endif
+
 #define MAX_DNA_LENGTH 1024
 #define MAX_FILENAME_LENGTH 256
 #define MAX_TEXT_LENGTH 512
@@ -38,6 +46,7 @@ typedef struct {
     int decrypt_mode;
     int encrypt_file_mode;
     int decrypt_file_mode;
+    int stdin_mode;
     int no_color;
 
     char input_file[MAX_FILENAME_LENGTH];
@@ -852,6 +861,7 @@ options parse_args(int argc, char *argv[]) {
     config.decrypt_mode = 0;
     config.encrypt_file_mode = 0;
     config.decrypt_file_mode = 0;
+    config.stdin_mode = 0;
     config.no_color = 0;
 
     config.input_file[0] = '\0';
@@ -934,6 +944,8 @@ options parse_args(int argc, char *argv[]) {
             strncpy(config.decrypt_file_input, argv[++i], MAX_FILENAME_LENGTH - 1);
             strncpy(config.decrypt_file_output, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.decrypt_file_mode = 1;
+        } else if (strcmp(argv[i], "--stdin") == 0) {
+            config.stdin_mode = 1;
         }
     }
 
@@ -1118,6 +1130,30 @@ int main(int argc, char *argv[]) {
         }
 
         fclose(file);
+        return 0;
+    }
+
+    int use_stdin = 0;
+
+    if (config.stdin_mode == 1) {
+        use_stdin = 1;
+    } else {
+        #ifdef _WIN32
+        if (!isatty(_fileno(stdin))) {
+            use_stdin = 1;
+        }
+        #else
+        if (!isatty(fileno(stdin))) {
+            use_stdin = 1;
+        }
+        #endif
+    }
+
+    if (use_stdin) {
+        while (fgets(sequence, sizeof(sequence), stdin) != NULL) {
+            sequence[strcspn(sequence, "\n")] = '\0';
+            process_sequence(sequence, config);
+        }
         return 0;
     }
 
