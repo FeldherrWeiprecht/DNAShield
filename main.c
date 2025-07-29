@@ -19,6 +19,7 @@
 #define BAR_WIDTH 40
 #define MAX_COMPRESSED_LENGTH (MAX_DNA_LENGTH * 3)
 #define KEY_SIZE 16
+#define MAX_MATCHES 128
 
 typedef struct {
     int show_ascii;
@@ -38,6 +39,7 @@ typedef struct {
     int do_compress;
     int do_decompress;
     int do_export_stats;
+    int do_find;
     int mutate_count;
     int errors_count;
     int random_length;
@@ -55,6 +57,7 @@ typedef struct {
     char export_stats_file[MAX_FILENAME_LENGTH];
     char compare_seq1[MAX_DNA_LENGTH];
     char compare_seq2[MAX_DNA_LENGTH];
+    char find_pattern[MAX_DNA_LENGTH];
     char encrypt_text[MAX_TEXT_LENGTH];
     char decrypt_hex[MAX_TEXT_LENGTH];
     char encrypt_file_input[MAX_FILENAME_LENGTH];
@@ -273,6 +276,72 @@ void print_sequence(const char *sequence) {
     }
 
     if (count % 32 != 0) {
+        printf("\n");
+    }
+}
+
+void print_match_marked(const char *seq, int seq_len, int start, int pat_len, int color) {
+    for (int i = 0; i < seq_len; i++) {
+        if (i >= start && i < start + pat_len) {
+            if (!color) {
+                print_base(seq[i]);
+            } else {
+                printf("\033[42;30m");
+                print_base(seq[i]);
+                printf("\033[0m");
+            }
+        } else {
+            print_base(seq[i]);
+        }
+    }
+    printf("\n");
+}
+
+void find_pattern(const char *sequence, const char *pattern, int color) {
+    int seq_len = strlen(sequence);
+    int pat_len = strlen(pattern);
+    int found = 0;
+    int positions[MAX_MATCHES];
+    int match_count = 0;
+
+    if (pat_len == 0 || seq_len == 0 || pat_len > seq_len) {
+        printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
+        printf("No matches found.\n");
+        return;
+    }
+
+    char upper_pattern[MAX_DNA_LENGTH];
+    for (int i = 0; i < pat_len; i++) {
+        upper_pattern[i] = toupper(pattern[i]);
+    }
+    upper_pattern[pat_len] = '\0';
+
+    printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
+
+    for (int i = 0; i <= seq_len - pat_len && match_count < MAX_MATCHES; i++) {
+        int match = 1;
+        for (int j = 0; j < pat_len; j++) {
+            if (toupper(sequence[i + j]) != upper_pattern[j]) {
+                match = 0;
+                break;
+            }
+        }
+        if (match) {
+            positions[match_count] = i;
+            match_count++;
+        }
+    }
+
+    if (match_count == 0) {
+        printf("No matches found.\n");
+        return;
+    }
+
+    printf("Found %d match(es):\n\n", match_count);
+
+    for (int m = 0; m < match_count; m++) {
+        printf("%d. Position: %d\n", m + 1, positions[m] + 1);
+        print_match_marked(sequence, seq_len, positions[m], pat_len, color ? 1 : 0);
         printf("\n");
     }
 }
@@ -853,6 +922,7 @@ options parse_args(int argc, char *argv[]) {
     config.do_compress = 0;
     config.do_decompress = 0;
     config.do_export_stats = 0;
+    config.do_find = 0;
     config.mutate_count = 0;
     config.errors_count = 0;
     config.random_length = 0;
@@ -870,6 +940,7 @@ options parse_args(int argc, char *argv[]) {
     config.export_stats_file[0] = '\0';
     config.compare_seq1[0] = '\0';
     config.compare_seq2[0] = '\0';
+    config.find_pattern[0] = '\0';
     config.encrypt_text[0] = '\0';
     config.decrypt_hex[0] = '\0';
     config.encrypt_file_input[0] = '\0';
@@ -930,6 +1001,9 @@ options parse_args(int argc, char *argv[]) {
             strncpy(config.compare_seq1, argv[++i], MAX_DNA_LENGTH - 1);
             strncpy(config.compare_seq2, argv[++i], MAX_DNA_LENGTH - 1);
             config.compare_mode = 1;
+        } else if (strcmp(argv[i], "--find") == 0 && i + 1 < argc) {
+            strncpy(config.find_pattern, argv[++i], MAX_DNA_LENGTH - 1);
+            config.do_find = 1;
         } else if (strcmp(argv[i], "--encrypt") == 0 && i + 1 < argc) {
             strncpy(config.encrypt_text, argv[++i], MAX_TEXT_LENGTH - 1);
             config.encrypt_mode = 1;
@@ -984,6 +1058,10 @@ void process_sequence(char *sequence, options config) {
 
     if (config.do_reverse == 1) {
         reverse_sequence(work_seq);
+    }
+
+    if (config.do_find == 1 && config.find_pattern[0] != '\0') {
+        find_pattern(work_seq, config.find_pattern, config.no_color ? 0 : 1);
     }
 
     if (config.show_json == 1) {
