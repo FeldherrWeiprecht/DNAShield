@@ -58,6 +58,7 @@ typedef struct {
     int stdin_mode;
     int no_color;
     int show_version;
+    int do_benchmark;
 
     char input_file[MAX_FILENAME_LENGTH];
     char output_file[MAX_FILENAME_LENGTH];
@@ -1393,6 +1394,7 @@ void print_help(const char *progname)
     printf("  --decrypt-file <in> <out>  Decrypt a file using DNA key\n");
     printf("  --stdin                 Read sequences from standard input\n");
     printf("  --complexity            Calculate sequence complexity (Shannon entropy)\n");
+    printf("  --benchmark             Measure and display analysis time\n");
     printf("  --version, -v           Show program version and build info\n");
     printf("  --help, -h              Show this help message\n\n");
 }
@@ -1432,6 +1434,7 @@ options parse_args(int argc, char *argv[])
     config.stdin_mode = 0;
     config.no_color = 0;
     config.show_version = 0;
+    config.do_benchmark = 0;
 
     config.input_file[0] = '\0';
     config.output_file[0] = '\0';
@@ -1593,7 +1596,11 @@ options parse_args(int argc, char *argv[])
         else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) 
         {
             config.show_version = 1;
-        } 
+        }
+        else if (strcmp(argv[i], "--benchmark") == 0)
+        {
+            config.do_benchmark = 1;
+        }
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) 
         {
             print_help(argv[0]);
@@ -1817,6 +1824,14 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    clock_t start_time;
+    clock_t end_time;
+
+    if (config.do_benchmark == 1) 
+    {
+        start_time = clock();
+    }
+
     if (config.file_mode == 1) 
     {
         FILE *file = fopen(config.input_file, "r");
@@ -1845,52 +1860,63 @@ int main(int argc, char *argv[])
         }
 
         fclose(file);
-        return 0;
-    }
-
-    int use_stdin = 0;
-
-    if (config.stdin_mode == 1) 
-    {
-        use_stdin = 1;
     } 
     else 
     {
-#ifdef _WIN32
-        if (!isatty(_fileno(stdin))) 
-        {
-            use_stdin = 1;
-        }
-#else
-        if (!isatty(fileno(stdin))) 
-        {
-            use_stdin = 1;
-        }
-#endif
-    }
+        int use_stdin = 0;
 
-    if (use_stdin) 
-    {
-        while (fgets(sequence, sizeof(sequence), stdin) != NULL) 
+        if (config.stdin_mode == 1) 
         {
+            use_stdin = 1;
+        } 
+        else 
+        {
+#ifdef _WIN32
+            if (!isatty(_fileno(stdin))) 
+            {
+                use_stdin = 1;
+            }
+#else
+            if (!isatty(fileno(stdin))) 
+            {
+                use_stdin = 1;
+            }
+#endif
+        }
+
+        if (use_stdin) 
+        {
+            while (fgets(sequence, sizeof(sequence), stdin) != NULL) 
+            {
+                sequence[strcspn(sequence, "\n")] = '\0';
+                process_sequence(sequence, config);
+            }
+        } 
+        else 
+        {
+            printf("\nPlease enter a DNA sequence:\n\n");
+
+            if (fgets(sequence, sizeof(sequence), stdin) == NULL) 
+            {
+                printf("Error: Failed to read input.\n");
+                return 1;
+            }
+
             sequence[strcspn(sequence, "\n")] = '\0';
+
             process_sequence(sequence, config);
         }
-
-        return 0;
     }
 
-    printf("\nPlease enter a DNA sequence:\n\n");
-
-    if (fgets(sequence, sizeof(sequence), stdin) == NULL) 
+    if (config.do_benchmark == 1) 
     {
-        printf("Error: Failed to read input.\n");
-        return 1;
+        end_time = clock();
+
+        double elapsed = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+
+        printf("\n=== Benchmark ===\n\n");
+        printf("Analysis took %.6f seconds.\n\n", elapsed);
     }
-
-    sequence[strcspn(sequence, "\n")] = '\0';
-
-    process_sequence(sequence, config);
 
     return 0;
 }
