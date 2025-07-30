@@ -59,6 +59,7 @@ typedef struct {
     int no_color;
     int show_version;
     int do_benchmark;
+    int do_translate;
 
     char input_file[MAX_FILENAME_LENGTH];
     char output_file[MAX_FILENAME_LENGTH];
@@ -394,7 +395,21 @@ void find_pattern(const char *sequence, const char *pattern, int color)
     int positions[MAX_MATCHES];
     int match_count = 0;
 
-    if (pat_len == 0 || seq_len == 0 || pat_len > seq_len) 
+    if (pat_len == 0) 
+    {
+        printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
+        printf("No matches found.\n");
+        return;
+    }
+
+    if (seq_len == 0) 
+    {
+        printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
+        printf("No matches found.\n");
+        return;
+    }
+
+    if (pat_len > seq_len) 
     {
         printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
         printf("No matches found.\n");
@@ -479,7 +494,15 @@ void print_summary(const char *sequence)
 
     printf("Total Length: %d\n", total);
     printf("A: %d  C: %d  G: %d  T: %d\n", a, c, g, t);
-    printf("GC Content: %.1f%%\n", total > 0 ? (100.0 * gc / total) : 0.0);
+
+    if (total > 0) 
+    {
+        printf("GC Content: %.1f%%\n", (100.0 * gc / total));
+    } 
+    else 
+    {
+        printf("GC Content: 0.0%%\n");
+    }
 }
 
 void print_json(const char *sequence) 
@@ -505,7 +528,16 @@ void print_json(const char *sequence)
     printf("    \"G\": %d,\n", g);
     printf("    \"T\": %d\n", t);
     printf("  },\n");
-    printf("  \"gc_percent\": %.1f\n", total > 0 ? (100.0 * gc / total) : 0.0);
+
+    if (total > 0) 
+    {
+        printf("  \"gc_percent\": %.1f\n", (100.0 * gc / total));
+    } 
+    else 
+    {
+        printf("  \"gc_percent\": 0.0\n");
+    }
+
     printf("}\n");
 }
 
@@ -537,15 +569,16 @@ void export_csv(const char *filename, const char *sequence)
         fprintf(file, "sequence,length,A,C,G,T,gc_percent\n");
     }
 
-    fprintf(file, "%s,%d,%d,%d,%d,%d,%.1f\n",
-        sequence,
-        total,
-        count_a,
-        count_c,
-        count_g,
-        count_t,
-        total > 0 ? (100.0 * gc / total) : 0.0
-    );
+    fprintf(file, "%s,%d,%d,%d,%d,%d,", sequence, total, count_a, count_c, count_g, count_t);
+
+    if (total > 0) 
+    {
+        fprintf(file, "%.1f\n", (100.0 * gc / total));
+    } 
+    else 
+    {
+        fprintf(file, "0.0\n");
+    }
 
     fclose(file);
 }
@@ -574,7 +607,16 @@ void export_stats_json(const char *filename, const char *sequence)
     fprintf(file, "  \"C\": %d,\n", c);
     fprintf(file, "  \"G\": %d,\n", g);
     fprintf(file, "  \"T\": %d,\n", t);
-    fprintf(file, "  \"gc_percent\": %.1f\n", total > 0 ? (100.0 * gc / total) : 0.0);
+
+    if (total > 0) 
+    {
+        fprintf(file, "  \"gc_percent\": %.1f\n", (100.0 * gc / total));
+    } 
+    else 
+    {
+        fprintf(file, "  \"gc_percent\": 0.0\n");
+    }
+
     fprintf(file, "}\n");
 
     fclose(file);
@@ -1394,6 +1436,7 @@ void print_help(const char *progname)
     printf("  --decrypt-file <in> <out>  Decrypt a file using DNA key\n");
     printf("  --stdin                 Read sequences from standard input\n");
     printf("  --complexity            Calculate sequence complexity (Shannon entropy)\n");
+    printf("  --translate             Translate DNA sequence to amino acid sequence\n");
     printf("  --benchmark             Measure and display analysis time\n");
     printf("  --version, -v           Show program version and build info\n");
     printf("  --help, -h              Show this help message\n\n");
@@ -1435,6 +1478,7 @@ options parse_args(int argc, char *argv[])
     config.no_color = 0;
     config.show_version = 0;
     config.do_benchmark = 0;
+    config.do_translate = 0;
 
     config.input_file[0] = '\0';
     config.output_file[0] = '\0';
@@ -1593,6 +1637,10 @@ options parse_args(int argc, char *argv[])
         {
             config.do_complexity = 1;
         } 
+        else if (strcmp(argv[i], "--translate") == 0) 
+        {
+            config.do_translate = 1;
+        }
         else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) 
         {
             config.show_version = 1;
@@ -1609,6 +1657,198 @@ options parse_args(int argc, char *argv[])
     }
 
     return config;
+}
+
+char translate_codon(const char *codon)
+{
+    char c1 = codon[0];
+    char c2 = codon[1];
+    char c3 = codon[2];
+
+    if (c1 == 'T') 
+    {
+        if (c2 == 'T') 
+        {
+            if (c3 == 'T' || c3 == 'C') 
+            {
+                return 'F';
+            }
+            else if (c3 == 'A' || c3 == 'G') 
+            {
+                return 'L';
+            }
+        }
+        else if (c2 == 'C') 
+        {
+            return 'S';
+        }
+        else if (c2 == 'A') 
+        {
+            if (c3 == 'T' || c3 == 'C') 
+            {
+                return 'Y';
+            }
+            else if (c3 == 'A' || c3 == 'G') 
+            {
+                return '*';
+            }
+        }
+        else if (c2 == 'G') 
+        {
+            if (c3 == 'T' || c3 == 'C') 
+            {
+                return 'C';
+            }
+            else if (c3 == 'A') 
+            {
+                return '*';
+            }
+            else if (c3 == 'G') 
+            {
+                return 'W';
+            }
+        }
+    }
+    else if (c1 == 'C') 
+    {
+        if (c2 == 'T') 
+        {
+            return 'L';
+        }
+        else if (c2 == 'C') 
+        {
+            return 'P';
+        }
+        else if (c2 == 'A') 
+        {
+            if (c3 == 'T' || c3 == 'C') 
+            {
+                return 'H';
+            }
+            else if (c3 == 'A' || c3 == 'G') 
+            {
+                return 'Q';
+            }
+        }
+        else if (c2 == 'G') 
+        {
+            return 'R';
+        }
+    }
+    else if (c1 == 'A') 
+    {
+        if (c2 == 'T') 
+        {
+            if (c3 == 'T' || c3 == 'C' || c3 == 'A') 
+            {
+                return 'I';
+            }
+            else if (c3 == 'G') 
+            {
+                return 'M';
+            }
+        }
+        else if (c2 == 'C') 
+        {
+            return 'T';
+        }
+        else if (c2 == 'A') 
+        {
+            if (c3 == 'T' || c3 == 'C') 
+            {
+                return 'N';
+            }
+            else if (c3 == 'A' || c3 == 'G') 
+            {
+                return 'K';
+            }
+        }
+        else if (c2 == 'G') 
+        {
+            if (c3 == 'T' || c3 == 'C') 
+            {
+                return 'S';
+            }
+            else if (c3 == 'A' || c3 == 'G') 
+            {
+                return 'R';
+            }
+        }
+    }
+    else if (c1 == 'G') 
+    {
+        if (c2 == 'T') 
+        {
+            return 'V';
+        }
+        else if (c2 == 'C') 
+        {
+            return 'A';
+        }
+        else if (c2 == 'A') 
+        {
+            if (c3 == 'T' || c3 == 'C') 
+            {
+                return 'D';
+            }
+            else if (c3 == 'A' || c3 == 'G') 
+            {
+                return 'E';
+            }
+        }
+        else if (c2 == 'G') 
+        {
+            return 'G';
+        }
+    }
+
+    return 'X';
+}
+
+void translate_sequence(const char *sequence) 
+{
+    printf("\n=== Translation to Amino Acids ===\n\n");
+
+    int len = strlen(sequence);
+    int start_index = -1;
+    int i;
+
+    for (i = 0; i + 2 < len; i++) 
+    {
+        if (sequence[i] == 'A' && sequence[i + 1] == 'T' && sequence[i + 2] == 'G') 
+        {
+            start_index = i;
+            break;
+        }
+    }
+
+    if (start_index == -1) 
+    {
+        printf("No start codon found.\n");
+        printf("\n");
+        return;
+    }
+
+    for (i = start_index; i + 2 < len; i += 3) 
+    {
+        char codon[4];
+
+        codon[0] = sequence[i];
+        codon[1] = sequence[i + 1];
+        codon[2] = sequence[i + 2];
+        codon[3] = '\0';
+
+        char aa = translate_codon(codon);
+
+        if (aa == '*') 
+        {
+            break;
+        }
+
+        printf("%c", aa);
+    }
+
+    printf("\n");
 }
 
 void process_sequence(char *sequence, options config) 
@@ -1718,6 +1958,11 @@ void process_sequence(char *sequence, options config)
     if (config.do_complexity == 1) 
     {
         print_complexity(work_seq);
+    }
+
+    if (config.do_translate == 1) 
+    {
+        translate_sequence(work_seq);
     }
 
     if (config.show_ascii == 1) 
