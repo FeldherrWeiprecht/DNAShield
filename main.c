@@ -61,7 +61,9 @@ typedef struct {
     int do_benchmark;
     int do_translate;
     int rotate_n;
+    int do_hamming;
 
+    char hamming_seq[MAX_DNA_LENGTH];
     char input_file[MAX_FILENAME_LENGTH];
     char output_file[MAX_FILENAME_LENGTH];
     char csv_file[MAX_FILENAME_LENGTH];
@@ -1440,6 +1442,7 @@ void print_help(const char *progname)
     printf("  --translate             Translate DNA sequence to amino acid sequence\n");
     printf("  --benchmark             Measure and display analysis time\n");
     printf("  --rotate <N>            Cyclically rotate DNA sequence by N bases\n");
+    printf("  --hamming <seq>         Calculate Hamming distance to reference sequence\n");
     printf("  --version, -v           Show program version and build info\n");
     printf("  --help, -h              Show this help message\n\n");
 }
@@ -1482,6 +1485,9 @@ options parse_args(int argc, char *argv[])
     config.do_benchmark = 0;
     config.do_translate = 0;
     config.rotate_n = 0;
+
+    config.do_hamming = 0;
+    config.hamming_seq[0] = '\0';
 
     config.input_file[0] = '\0';
     config.output_file[0] = '\0';
@@ -1647,6 +1653,12 @@ options parse_args(int argc, char *argv[])
         else if (strcmp(argv[i], "--rotate") == 0 && i + 1 < argc)
         {
             config.rotate_n = atoi(argv[++i]);
+        }
+        else if (strcmp(argv[i], "--hamming") == 0 && i + 1 < argc)
+        {
+            config.do_hamming = 1;
+            strncpy(config.hamming_seq, argv[++i], MAX_DNA_LENGTH - 1);
+            config.hamming_seq[MAX_DNA_LENGTH - 1] = '\0';
         }
         else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) 
         {
@@ -2086,6 +2098,39 @@ void run_compare_mode(options config)
     process_sequence(config.compare_seq2, config);
 }
 
+void run_hamming_mode(const char *sequence, options config)
+{
+    char cleaned_ref[MAX_DNA_LENGTH];
+    strcpy(cleaned_ref, config.hamming_seq);
+
+    clean_sequence((char *)cleaned_ref);
+    char cleaned_seq[MAX_DNA_LENGTH];
+    strcpy(cleaned_seq, sequence);
+    clean_sequence(cleaned_seq);
+
+    int len_seq = strlen(cleaned_seq);
+    int len_ref = strlen(cleaned_ref);
+
+    if (len_seq != len_ref) 
+    {
+        printf("\nError: Sequences have different lengths. Cannot compute Hamming distance.\n\n");
+        return;
+    }
+
+    int hamming_distance = 0;
+
+    for (int i = 0; i < len_seq; i++) 
+    {
+        if (cleaned_seq[i] != cleaned_ref[i]) 
+        {
+            hamming_distance++;
+        }
+    }
+
+    printf("\n=== Hamming Distance ===\n\n");
+    printf("%d\n\n", hamming_distance);
+}
+
 int main(int argc, char *argv[]) 
 {
     srand(time(NULL));
@@ -2177,7 +2222,15 @@ int main(int argc, char *argv[])
         while (fgets(sequence, sizeof(sequence), file) != NULL) 
         {
             sequence[strcspn(sequence, "\n")] = '\0';
-            process_sequence(sequence, config);
+
+            if (config.do_hamming == 1) 
+            {
+                run_hamming_mode(sequence, config);
+            } 
+            else 
+            {
+                process_sequence(sequence, config);
+            }
         }
 
         fclose(file);
@@ -2210,7 +2263,15 @@ int main(int argc, char *argv[])
             while (fgets(sequence, sizeof(sequence), stdin) != NULL) 
             {
                 sequence[strcspn(sequence, "\n")] = '\0';
-                process_sequence(sequence, config);
+
+                if (config.do_hamming == 1) 
+                {
+                    run_hamming_mode(sequence, config);
+                } 
+                else 
+                {
+                    process_sequence(sequence, config);
+                }
             }
         } 
         else 
@@ -2225,7 +2286,14 @@ int main(int argc, char *argv[])
 
             sequence[strcspn(sequence, "\n")] = '\0';
 
-            process_sequence(sequence, config);
+            if (config.do_hamming == 1) 
+            {
+                run_hamming_mode(sequence, config);
+            } 
+            else 
+            {
+                process_sequence(sequence, config);
+            }
         }
     }
 
