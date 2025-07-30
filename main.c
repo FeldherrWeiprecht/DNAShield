@@ -1344,6 +1344,48 @@ void print_complexity(const char *sequence)
     printf("Shannon Entropy: %.4f bits/base (max: 2.0000)\n", entropy);
 }
 
+void print_help(const char *progname)
+{
+    printf("\n%s - DNA Sequence Analysis Tool\n\n", progname);
+
+    printf("Usage:\n");
+    printf("  %s [options]\n\n", progname);
+
+    printf("Options:\n");
+    printf("  --ascii                 Show ASCII representation of DNA sequence (default on)\n");
+    printf("  --stats                 Show base statistics (default on)\n");
+    printf("  --summary               Show summary of sequence statistics\n");
+    printf("  --json                  Output analysis in JSON format (disables ASCII, stats, summary)\n");
+    printf("  --reverse               Reverse the DNA sequence before analysis\n");
+    printf("  --complement            Use complement of DNA sequence before analysis\n");
+    printf("  --binary                Output DNA sequence as binary code\n");
+    printf("  --hex                   Output DNA sequence as hexadecimal code\n");
+    printf("  --key                   Derive a 128-bit key from DNA sequence\n");
+    printf("  --hash                  Output a 256-bit hash of the DNA sequence\n");
+    printf("  --qrcode                Visualize DNA sequence as a symbolic QR code\n");
+    printf("  --histogram             Show base distribution histogram (horizontal by default)\n");
+    printf("  --histogram-vertical    Show base distribution histogram vertically\n");
+    printf("  --histogram-horizontal  Show base distribution histogram horizontally\n");
+    printf("  --compress              Compress the DNA sequence (run-length encoding)\n");
+    printf("  --decompress            Decompress a run-length encoded DNA sequence\n");
+    printf("  --export-stats <file>   Export statistics as JSON to file\n");
+    printf("  --errors <N>            Introduce N random errors in the sequence\n");
+    printf("  --no-color              Disable colored output\n");
+    printf("  --csv <file>            Export sequence data to CSV file\n");
+    printf("  --file <file>           Read sequences from a file (one per line)\n");
+    printf("  --mutate <N>            Introduce N random point mutations\n");
+    printf("  --random <length>       Generate a random DNA sequence of given length\n");
+    printf("  --compare <seq1> <seq2> Compare two DNA sequences and count differences\n");
+    printf("  --find <pattern>        Search for a subsequence pattern in DNA\n");
+    printf("  --encrypt <text>        Encrypt text with DNA-derived key\n");
+    printf("  --decrypt <hex>         Decrypt hex string with DNA-derived key\n");
+    printf("  --encrypt-file <in> <out>  Encrypt a file using DNA key\n");
+    printf("  --decrypt-file <in> <out>  Decrypt a file using DNA key\n");
+    printf("  --stdin                 Read sequences from standard input\n");
+    printf("  --complexity            Calculate sequence complexity (Shannon entropy)\n");
+    printf("  --help, -h              Show this help message\n\n");
+}
+
 options parse_args(int argc, char *argv[]) 
 {
     options config;
@@ -1535,6 +1577,11 @@ options parse_args(int argc, char *argv[])
         else if (strcmp(argv[i], "--complexity") == 0) 
         {
             config.do_complexity = 1;
+        } 
+        else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) 
+        {
+            print_help(argv[0]);
+            exit(0);
         }
     }
 
