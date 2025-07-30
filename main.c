@@ -60,6 +60,7 @@ typedef struct {
     int show_version;
     int do_benchmark;
     int do_translate;
+    int rotate_n;
 
     char input_file[MAX_FILENAME_LENGTH];
     char output_file[MAX_FILENAME_LENGTH];
@@ -1438,6 +1439,7 @@ void print_help(const char *progname)
     printf("  --complexity            Calculate sequence complexity (Shannon entropy)\n");
     printf("  --translate             Translate DNA sequence to amino acid sequence\n");
     printf("  --benchmark             Measure and display analysis time\n");
+    printf("  --rotate <N>            Cyclically rotate DNA sequence by N bases\n");
     printf("  --version, -v           Show program version and build info\n");
     printf("  --help, -h              Show this help message\n\n");
 }
@@ -1479,6 +1481,7 @@ options parse_args(int argc, char *argv[])
     config.show_version = 0;
     config.do_benchmark = 0;
     config.do_translate = 0;
+    config.rotate_n = 0;
 
     config.input_file[0] = '\0';
     config.output_file[0] = '\0';
@@ -1641,6 +1644,10 @@ options parse_args(int argc, char *argv[])
         {
             config.do_translate = 1;
         }
+        else if (strcmp(argv[i], "--rotate") == 0 && i + 1 < argc)
+        {
+            config.rotate_n = atoi(argv[++i]);
+        }
         else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) 
         {
             config.show_version = 1;
@@ -1653,6 +1660,31 @@ options parse_args(int argc, char *argv[])
         {
             print_help(argv[0]);
             exit(0);
+        }
+    }
+
+    if (config.show_json == 0)
+    {
+        if (config.show_ascii == 0 && config.show_stats == 0 && config.show_summary == 0)
+        {
+            config.show_ascii = 1;
+            config.show_stats = 1;
+            config.show_summary = 1;
+        }
+        else
+        {
+            if (config.show_ascii == 0)
+            {
+                config.show_ascii = 1;
+            }
+            if (config.show_stats == 0)
+            {
+                config.show_stats = 1;
+            }
+            if (config.show_summary == 0)
+            {
+                config.show_summary = 1;
+            }
         }
     }
 
@@ -1851,6 +1883,45 @@ void translate_sequence(const char *sequence)
     printf("\n");
 }
 
+void rotate_sequence(char *sequence, int n)
+{
+    int length = strlen(sequence);
+
+    if (length == 0) 
+    {
+        return;
+    }
+
+    if (n < 0) 
+    {
+        n = length + (n % length);
+    } 
+    else 
+    {
+        n = n % length;
+    }
+
+    if (n == 0) 
+    {
+        return;
+    }
+
+    char temp[MAX_DNA_LENGTH];
+    int i;
+
+    for (i = 0; i < length; i++) 
+    {
+        temp[(i + n) % length] = sequence[i];
+    }
+
+    for (i = 0; i < length; i++) 
+    {
+        sequence[i] = temp[i];
+    }
+
+    sequence[length] = '\0';
+}
+
 void process_sequence(char *sequence, options config) 
 {
     char work_seq[MAX_DNA_LENGTH];
@@ -1891,6 +1962,11 @@ void process_sequence(char *sequence, options config)
     if (config.do_reverse == 1) 
     {
         reverse_sequence(work_seq);
+    }
+
+    if (config.rotate_n != 0) 
+    {
+        rotate_sequence(work_seq, config.rotate_n);
     }
 
     if (config.do_find == 1 && config.find_pattern[0] != '\0') 
