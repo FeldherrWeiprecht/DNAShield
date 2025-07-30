@@ -22,6 +22,10 @@
 #define KEY_SIZE 16
 #define MAX_MATCHES 128
 
+#define PROGRAM_VERSION "1.0.0"
+#define BUILD_DATE __DATE__
+#define BUILD_TIME __TIME__
+
 typedef struct {
     int show_ascii;
     int show_stats;
@@ -53,6 +57,7 @@ typedef struct {
     int decrypt_file_mode;
     int stdin_mode;
     int no_color;
+    int show_version;
 
     char input_file[MAX_FILENAME_LENGTH];
     char output_file[MAX_FILENAME_LENGTH];
@@ -385,7 +390,6 @@ void find_pattern(const char *sequence, const char *pattern, int color)
 {
     int seq_len = strlen(sequence);
     int pat_len = strlen(pattern);
-    int found = 0;
     int positions[MAX_MATCHES];
     int match_count = 0;
 
@@ -1344,6 +1348,12 @@ void print_complexity(const char *sequence)
     printf("Shannon Entropy: %.4f bits/base (max: 2.0000)\n", entropy);
 }
 
+void print_version(const char *progname) 
+{
+    printf("\n%s version %s\n", progname, PROGRAM_VERSION);
+    printf("Build date: %s %s\n\n", BUILD_DATE, BUILD_TIME);
+}
+
 void print_help(const char *progname)
 {
     printf("\n%s - DNA Sequence Analysis Tool\n\n", progname);
@@ -1383,6 +1393,7 @@ void print_help(const char *progname)
     printf("  --decrypt-file <in> <out>  Decrypt a file using DNA key\n");
     printf("  --stdin                 Read sequences from standard input\n");
     printf("  --complexity            Calculate sequence complexity (Shannon entropy)\n");
+    printf("  --version, -v           Show program version and build info\n");
     printf("  --help, -h              Show this help message\n\n");
 }
 
@@ -1420,6 +1431,7 @@ options parse_args(int argc, char *argv[])
     config.decrypt_file_mode = 0;
     config.stdin_mode = 0;
     config.no_color = 0;
+    config.show_version = 0;
 
     config.input_file[0] = '\0';
     config.output_file[0] = '\0';
@@ -1577,6 +1589,10 @@ options parse_args(int argc, char *argv[])
         else if (strcmp(argv[i], "--complexity") == 0) 
         {
             config.do_complexity = 1;
+        } 
+        else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) 
+        {
+            config.show_version = 1;
         } 
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) 
         {
@@ -1749,6 +1765,12 @@ int main(int argc, char *argv[])
     char sequence[MAX_DNA_LENGTH];
 
     options config = parse_args(argc, argv);
+
+    if (config.show_version == 1) 
+    {
+        print_version(argv[0]);
+        return 0;
+    }
 
     if (config.compare_mode == 1) 
     {
