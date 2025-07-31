@@ -66,6 +66,8 @@ typedef struct {
     int do_hamming;
     int do_log;
     int do_palindrome;
+    int do_fasta_input;
+    int do_fasta_export;
 
     char log_file[MAX_FILENAME_LENGTH];
     char hamming_seq[MAX_DNA_LENGTH];
@@ -82,6 +84,8 @@ typedef struct {
     char encrypt_file_output[MAX_FILENAME_LENGTH];
     char decrypt_file_input[MAX_FILENAME_LENGTH];
     char decrypt_file_output[MAX_FILENAME_LENGTH];
+    char fasta_input_file[MAX_FILENAME_LENGTH];
+    char fasta_export_file[MAX_FILENAME_LENGTH];
 } options;
 
 static FILE *log_fp = NULL;
@@ -1478,8 +1482,10 @@ void print_help(const char *progname)
     printf("  --rotate <N>            Cyclically rotate DNA sequence by N bases\n");
     printf("  --hamming <seq>         Calculate Hamming distance to reference sequence\n");
     printf("  --log <file>            Log all terminal output to specified file\n");
+    printf("  --fasta <file>          Read a single DNA sequence from a FASTA file\n");
+    printf("  --export-fasta <file>   Export processed sequence to a FASTA file\n\n");
     printf("  --version, -v           Show program version and build info\n");
-    printf("  --help, -h              Show this help message\n\n");
+    printf("  --help, -h              Show this help message\n");
 }
 
 options parse_args(int argc, char *argv[]) 
@@ -1524,6 +1530,8 @@ options parse_args(int argc, char *argv[])
     config.do_hamming = 0;
     config.do_log = 0;
     config.do_palindrome = 0;
+    config.do_fasta_input = 0;
+    config.do_fasta_export = 0;
 
     config.hamming_seq[0] = '\0';
     config.input_file[0] = '\0';
@@ -1540,6 +1548,8 @@ options parse_args(int argc, char *argv[])
     config.decrypt_file_input[0] = '\0';
     config.decrypt_file_output[0] = '\0';
     config.log_file[0] = '\0';
+    config.fasta_input_file[0] = '\0';
+    config.fasta_export_file[0] = '\0';
 
     for (int i = 1; i < argc; i++) 
     {
@@ -1723,6 +1733,16 @@ options parse_args(int argc, char *argv[])
         {
             strncpy(config.log_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.do_log = 1;
+        }
+        else if (strcmp(argv[i], "--fasta") == 0 && i + 1 < argc)
+        {
+            strncpy(config.fasta_input_file, argv[++i], MAX_FILENAME_LENGTH - 1);
+            config.do_fasta_input = 1;
+        }
+        else if (strcmp(argv[i], "--export-fasta") == 0 && i + 1 < argc)
+        {
+            strncpy(config.fasta_export_file, argv[++i], MAX_FILENAME_LENGTH - 1);
+            config.do_fasta_export = 1;
         }
     }
 
@@ -1992,6 +2012,105 @@ void check_palindrome(const char *sequence)
     log_printf("\nPalindrome: Yes\n");
 }
 
+int read_fasta_single_sequence(const char *filename, char *sequence) 
+{
+    FILE *file = fopen(filename, "r");
+
+    if (file == NULL) 
+    {
+        log_printf("Error: Could not open FASTA file '%s'\n", filename);
+        return 0;
+    }
+
+    char line[1024];
+    int seq_started = 0;
+    int seq_len = 0;
+
+    while (fgets(line, sizeof(line), file) != NULL) 
+    {
+        if (line[0] == '>') 
+        {
+            if (seq_started) 
+            {
+                break;
+            }
+
+            seq_started = 1;
+            continue;
+        }
+
+        if (!seq_started) 
+        {
+            continue;
+        }
+
+        int i = 0;
+
+        while (line[i] != '\0' && line[i] != '\n' && line[i] != '\r') 
+        {
+            char base = toupper(line[i]);
+
+            if (is_valid_base(base)) 
+            {
+                if (seq_len < MAX_DNA_LENGTH - 1) 
+                {
+                    sequence[seq_len] = base;
+                    seq_len++;
+                }
+            }
+
+            i++;
+        }
+    }
+
+    fclose(file);
+
+    sequence[seq_len] = '\0';
+
+    if (seq_len == 0) 
+    {
+        log_printf("Error: No DNA sequence found in FASTA file '%s'\n", filename);
+        return 0;
+    }
+
+    return 1;
+}
+
+int export_fasta_sequence(const char *filename, const char *sequence) 
+{
+    FILE *file = fopen(filename, "w");
+
+    if (file == NULL) 
+    {
+        log_printf("Error: Could not open output FASTA file '%s' for writing\n", filename);
+        return 0;
+    }
+
+    fprintf(file, ">dnashield_output\n");
+
+    int length = strlen(sequence);
+    int pos = 0;
+
+    while (pos < length) 
+    {
+        int line_len = 60;
+
+        if (length - pos < 60) 
+        {
+            line_len = length - pos;
+        }
+
+        fwrite(sequence + pos, 1, line_len, file);
+        fprintf(file, "\n");
+
+        pos += line_len;
+    }
+
+    fclose(file);
+
+    return 1;
+}
+
 void process_sequence(char *sequence, options config) 
 {
     char work_seq[MAX_DNA_LENGTH];
@@ -2146,6 +2265,16 @@ void process_sequence(char *sequence, options config)
     if (config.do_export_stats == 1) 
     {
         export_stats_json(config.export_stats_file, work_seq);
+    }
+
+    if (config.do_fasta_export == 1) 
+    {
+        int success = export_fasta_sequence(config.fasta_export_file, work_seq);
+
+        if (success) 
+        {
+            log_printf("\nFASTA export completed: %s\n\n", config.fasta_export_file);
+        }
     }
 
     log_printf("\n");
@@ -2328,6 +2457,30 @@ int main(int argc, char *argv[])
     if (config.do_benchmark == 1) 
     {
         start_time = clock();
+    }
+
+    if (config.do_fasta_input == 1) 
+    {
+        int success = read_fasta_single_sequence(config.fasta_input_file, sequence);
+
+        if (!success) 
+        {
+            if (log_fp != NULL) 
+            {
+                fclose(log_fp);
+            }
+
+            return 1;
+        }
+
+        process_sequence(sequence, config);
+
+        if (log_fp != NULL) 
+        {
+            fclose(log_fp);
+        }
+
+        return 0;
     }
 
     if (config.file_mode == 1) 
