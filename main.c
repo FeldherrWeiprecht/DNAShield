@@ -34,6 +34,7 @@ typedef struct {
     int show_json;
     int do_reverse;
     int do_complement;
+    int do_reverse_complement;
     int file_mode;
     int do_csv;
     int do_binary;
@@ -153,6 +154,12 @@ void make_complement(char *sequence)
     {
         sequence[i] = complement_base(sequence[i]);
     }
+}
+
+void reverse_complement_sequence(char *sequence)
+{
+    make_complement(sequence);
+    reverse_sequence(sequence);
 }
 
 char random_base(char exclude) 
@@ -1440,6 +1447,7 @@ void print_help(const char *progname)
     printf("  --palindrome            Check if DNA sequence is a palindrome (reverse-complement)\n");
     printf("  --reverse               Reverse the DNA sequence before analysis\n");
     printf("  --complement            Use complement of DNA sequence before analysis\n");
+    printf("  --reverse-complement    Use reverse complement of DNA sequence before analysis\n");
     printf("  --binary                Output DNA sequence as binary code\n");
     printf("  --hex                   Output DNA sequence as hexadecimal code\n");
     printf("  --key                   Derive a 128-bit key from DNA sequence\n");
@@ -1484,6 +1492,7 @@ options parse_args(int argc, char *argv[])
     config.show_json = 0;
     config.do_reverse = 0;
     config.do_complement = 0;
+    config.do_reverse_complement = 0;
     config.file_mode = 0;
     config.do_csv = 0;
     config.do_binary = 0;
@@ -1564,7 +1573,11 @@ options parse_args(int argc, char *argv[])
         else if (strcmp(argv[i], "--complement") == 0) 
         {
             config.do_complement = 1;
-        } 
+        }
+        else if (strcmp(argv[i], "--reverse-complement") == 0)
+        {
+            config.do_reverse_complement = 1;
+        }
         else if (strcmp(argv[i], "--binary") == 0) 
         {
             config.do_binary = 1;
@@ -2011,14 +2024,21 @@ void process_sequence(char *sequence, options config)
         inject_errors(work_seq, config.errors_count);
     }
 
-    if (config.do_complement == 1) 
+    if (config.do_reverse_complement == 1) 
     {
-        make_complement(work_seq);
-    }
+        reverse_complement_sequence(work_seq);
+    } 
+    else 
+    {
+        if (config.do_complement == 1) 
+        {
+            make_complement(work_seq);
+        }
 
-    if (config.do_reverse == 1) 
-    {
-        reverse_sequence(work_seq);
+        if (config.do_reverse == 1) 
+        {
+            reverse_sequence(work_seq);
+        }
     }
 
     if (config.rotate_n != 0) 
