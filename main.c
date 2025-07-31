@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <time.h>
 #include <math.h>
+#include <stdarg.h>
 
 #ifdef _WIN32
 #include <io.h>
@@ -63,6 +64,7 @@ typedef struct {
     int rotate_n;
     int do_hamming;
     int do_log;
+    int do_palindrome;
 
     char log_file[MAX_FILENAME_LENGTH];
     char hamming_seq[MAX_DNA_LENGTH];
@@ -1431,10 +1433,11 @@ void print_help(const char *progname)
     printf("  %s [options]\n\n", progname);
 
     printf("Options:\n");
-    printf("  --ascii                 Show ASCII representation of DNA sequence (default on)\n");
-    printf("  --stats                 Show base statistics (default on)\n");
+    printf("  --ascii                 Show ASCII representation of DNA sequence\n");
+    printf("  --stats                 Show base statistics\n");
     printf("  --summary               Show summary of sequence statistics\n");
     printf("  --json                  Output analysis in JSON format (disables ASCII, stats, summary)\n");
+    printf("  --palindrome            Check if DNA sequence is a palindrome (reverse-complement)\n");
     printf("  --reverse               Reverse the DNA sequence before analysis\n");
     printf("  --complement            Use complement of DNA sequence before analysis\n");
     printf("  --binary                Output DNA sequence as binary code\n");
@@ -1475,8 +1478,8 @@ options parse_args(int argc, char *argv[])
 {
     options config;
 
-    config.show_ascii = 1;
-    config.show_stats = 1;
+    config.show_ascii = 0;
+    config.show_stats = 0;
     config.show_summary = 0;
     config.show_json = 0;
     config.do_reverse = 0;
@@ -1510,6 +1513,8 @@ options parse_args(int argc, char *argv[])
     config.do_translate = 0;
     config.rotate_n = 0;
     config.do_hamming = 0;
+    config.do_log = 0;
+    config.do_palindrome = 0;
 
     config.hamming_seq[0] = '\0';
     config.input_file[0] = '\0';
@@ -1526,7 +1531,6 @@ options parse_args(int argc, char *argv[])
     config.decrypt_file_input[0] = '\0';
     config.decrypt_file_output[0] = '\0';
     config.log_file[0] = '\0';
-    config.do_log = 0;
 
     for (int i = 1; i < argc; i++) 
     {
@@ -1541,7 +1545,11 @@ options parse_args(int argc, char *argv[])
         else if (strcmp(argv[i], "--summary") == 0) 
         {
             config.show_summary = 1;
-        } 
+        }
+        else if (strcmp(argv[i], "--palindrome") == 0)
+        {
+            config.do_palindrome = 1;
+        }
         else if (strcmp(argv[i], "--json") == 0) 
         {
             config.show_json = 1;
@@ -1702,31 +1710,6 @@ options parse_args(int argc, char *argv[])
         {
             strncpy(config.log_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.do_log = 1;
-        }
-    }
-
-    if (config.show_json == 0)
-    {
-        if (config.show_ascii == 0 && config.show_stats == 0 && config.show_summary == 0)
-        {
-            config.show_ascii = 1;
-            config.show_stats = 1;
-            config.show_summary = 1;
-        }
-        else
-        {
-            if (config.show_ascii == 0)
-            {
-                config.show_ascii = 1;
-            }
-            if (config.show_stats == 0)
-            {
-                config.show_stats = 1;
-            }
-            if (config.show_summary == 0)
-            {
-                config.show_summary = 1;
-            }
         }
     }
 
@@ -1964,6 +1947,38 @@ void rotate_sequence(char *sequence, int n)
     sequence[length] = '\0';
 }
 
+void check_palindrome(const char *sequence)
+{
+    int length = strlen(sequence);
+
+    if (length == 0) 
+    {
+        log_printf("\nPalindrome: No\n");
+        return;
+    }
+
+    char revcomp[MAX_DNA_LENGTH];
+    int i;
+
+    for (i = 0; i < length; i++) 
+    {
+        revcomp[i] = complement_base(sequence[length - 1 - i]);
+    }
+
+    revcomp[length] = '\0';
+
+    for (i = 0; i < length; i++) 
+    {
+        if (sequence[i] != revcomp[i]) 
+        {
+            log_printf("\nPalindrome: No\n");
+            return;
+        }
+    }
+
+    log_printf("\nPalindrome: Yes\n");
+}
+
 void process_sequence(char *sequence, options config) 
 {
     char work_seq[MAX_DNA_LENGTH];
@@ -2014,6 +2029,11 @@ void process_sequence(char *sequence, options config)
     if (config.do_find == 1 && config.find_pattern[0] != '\0') 
     {
         find_pattern(work_seq, config.find_pattern, config.no_color ? 0 : 1);
+    }
+
+    if (config.do_palindrome == 1) 
+    {
+        check_palindrome(work_seq);
     }
 
     if (config.show_json == 1) 
