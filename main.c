@@ -62,7 +62,9 @@ typedef struct {
     int do_translate;
     int rotate_n;
     int do_hamming;
+    int do_log;
 
+    char log_file[MAX_FILENAME_LENGTH];
     char hamming_seq[MAX_DNA_LENGTH];
     char input_file[MAX_FILENAME_LENGTH];
     char output_file[MAX_FILENAME_LENGTH];
@@ -78,6 +80,8 @@ typedef struct {
     char decrypt_file_input[MAX_FILENAME_LENGTH];
     char decrypt_file_output[MAX_FILENAME_LENGTH];
 } options;
+
+static FILE *log_fp = NULL;
 
 int is_valid_base(char base) 
 {
@@ -318,33 +322,52 @@ void count_bases(const char *sequence, int *a, int *c, int *g, int *t)
     }
 }
 
+void log_printf(const char *format, ...) 
+{
+    va_list args;
+
+    va_start(args, format);
+
+    vprintf(format, args);
+
+    if (log_fp != NULL) 
+    {
+        va_list args_copy;
+        va_copy(args_copy, args);
+        vfprintf(log_fp, format, args_copy);
+        va_end(args_copy);
+    }
+
+    va_end(args);
+}
+
 void print_base(char base) 
 {
     if (base == 'A') 
     {
-        printf("[A]");
+        log_printf("[A]");
     } 
     else if (base == 'C') 
     {
-        printf("[C]");
+        log_printf("[C]");
     } 
     else if (base == 'G') 
     {
-        printf("[G]");
+        log_printf("[G]");
     } 
     else if (base == 'T') 
     {
-        printf("[T]");
+        log_printf("[T]");
     } 
     else 
     {
-        printf("[?]");
+        log_printf("[?]");
     }
 }
 
 void print_sequence(const char *sequence) 
 {
-    printf("\n=== ASCII View ===\n\n");
+    log_printf("\n=== ASCII View ===\n\n");
 
     int count = 0;
 
@@ -355,13 +378,13 @@ void print_sequence(const char *sequence)
 
         if (count % 32 == 0) 
         {
-            printf("\n");
+            log_printf("\n");
         }
     }
 
     if (count % 32 != 0) 
     {
-        printf("\n");
+        log_printf("\n");
     }
 }
 
@@ -377,9 +400,9 @@ void print_match_marked(const char *seq, int seq_len, int start, int pat_len, in
             } 
             else 
             {
-                printf("\033[42;30m");
+                log_printf("\033[42;30m");
                 print_base(seq[i]);
-                printf("\033[0m");
+                log_printf("\033[0m");
             }
         } 
         else 
@@ -388,7 +411,7 @@ void print_match_marked(const char *seq, int seq_len, int start, int pat_len, in
         }
     }
 
-    printf("\n");
+    log_printf("\n");
 }
 
 void find_pattern(const char *sequence, const char *pattern, int color) 
@@ -400,22 +423,22 @@ void find_pattern(const char *sequence, const char *pattern, int color)
 
     if (pat_len == 0) 
     {
-        printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
-        printf("No matches found.\n");
+        log_printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
+        log_printf("No matches found.\n");
         return;
     }
 
     if (seq_len == 0) 
     {
-        printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
-        printf("No matches found.\n");
+        log_printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
+        log_printf("No matches found.\n");
         return;
     }
 
     if (pat_len > seq_len) 
     {
-        printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
-        printf("No matches found.\n");
+        log_printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
+        log_printf("No matches found.\n");
         return;
     }
 
@@ -426,7 +449,7 @@ void find_pattern(const char *sequence, const char *pattern, int color)
     }
     upper_pattern[pat_len] = '\0';
 
-    printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
+    log_printf("\n=== Pattern Search: \"%s\" ===\n\n", pattern);
 
     for (int i = 0; i <= seq_len - pat_len && match_count < MAX_MATCHES; i++) 
     {
@@ -450,17 +473,17 @@ void find_pattern(const char *sequence, const char *pattern, int color)
 
     if (match_count == 0) 
     {
-        printf("No matches found.\n");
+        log_printf("No matches found.\n");
         return;
     }
 
-    printf("Found %d match(es):\n\n", match_count);
+    log_printf("Found %d match(es):\n\n", match_count);
 
     for (int m = 0; m < match_count; m++) 
     {
-        printf("%d. Position: %d\n", m + 1, positions[m] + 1);
+        log_printf("%d. Position: %d\n", m + 1, positions[m] + 1);
         print_match_marked(sequence, seq_len, positions[m], pat_len, color ? 1 : 0);
-        printf("\n");
+        log_printf("\n");
     }
 }
 
@@ -473,12 +496,12 @@ void print_stats(const char *sequence)
 
     count_bases(sequence, &a, &c, &g, &t);
 
-    printf("\n=== Base Statistics ===\n\n");
+    log_printf("\n=== Base Statistics ===\n\n");
 
-    printf("A: %d\n", a);
-    printf("C: %d\n", c);
-    printf("G: %d\n", g);
-    printf("T: %d\n", t);
+    log_printf("A: %d\n", a);
+    log_printf("C: %d\n", c);
+    log_printf("G: %d\n", g);
+    log_printf("T: %d\n", t);
 }
 
 void print_summary(const char *sequence) 
@@ -493,18 +516,18 @@ void print_summary(const char *sequence)
     int total = a + c + g + t;
     int gc = c + g;
 
-    printf("\n=== Summary ===\n\n");
+    log_printf("\n=== Summary ===\n\n");
 
-    printf("Total Length: %d\n", total);
-    printf("A: %d  C: %d  G: %d  T: %d\n", a, c, g, t);
+    log_printf("Total Length: %d\n", total);
+    log_printf("A: %d  C: %d  G: %d  T: %d\n", a, c, g, t);
 
     if (total > 0) 
     {
-        printf("GC Content: %.1f%%\n", (100.0 * gc / total));
+        log_printf("GC Content: %.1f%%\n", (100.0 * gc / total));
     } 
     else 
     {
-        printf("GC Content: 0.0%%\n");
+        log_printf("GC Content: 0.0%%\n");
     }
 }
 
@@ -520,28 +543,28 @@ void print_json(const char *sequence)
     int total = a + c + g + t;
     int gc = c + g;
 
-    printf("\n=== JSON Output ===\n\n");
+    log_printf("\n=== JSON Output ===\n\n");
 
-    printf("{\n");
-    printf("  \"length\": %d,\n", total);
-    printf("  \"sequence\": \"%s\",\n", sequence);
-    printf("  \"counts\": {\n");
-    printf("    \"A\": %d,\n", a);
-    printf("    \"C\": %d,\n", c);
-    printf("    \"G\": %d,\n", g);
-    printf("    \"T\": %d\n", t);
-    printf("  },\n");
+    log_printf("{\n");
+    log_printf("  \"length\": %d,\n", total);
+    log_printf("  \"sequence\": \"%s\",\n", sequence);
+    log_printf("  \"counts\": {\n");
+    log_printf("    \"A\": %d,\n", a);
+    log_printf("    \"C\": %d,\n", c);
+    log_printf("    \"G\": %d,\n", g);
+    log_printf("    \"T\": %d\n", t);
+    log_printf("  },\n");
 
     if (total > 0) 
     {
-        printf("  \"gc_percent\": %.1f\n", (100.0 * gc / total));
+        log_printf("  \"gc_percent\": %.1f\n", (100.0 * gc / total));
     } 
     else 
     {
-        printf("  \"gc_percent\": 0.0\n");
+        log_printf("  \"gc_percent\": 0.0\n");
     }
 
-    printf("}\n");
+    log_printf("}\n");
 }
 
 void export_csv(const char *filename, const char *sequence) 
@@ -560,7 +583,7 @@ void export_csv(const char *filename, const char *sequence)
 
     if (file == NULL) 
     {
-        printf("Failed to write to file: %s\n", filename);
+        log_printf("Failed to write to file: %s\n", filename);
         return;
     }
 
@@ -599,7 +622,7 @@ void export_stats_json(const char *filename, const char *sequence)
 
     if (file == NULL) 
     {
-        printf("Failed to write JSON stats to file: %s\n", filename);
+        log_printf("Failed to write JSON stats to file: %s\n", filename);
         return;
     }
 
@@ -627,38 +650,38 @@ void export_stats_json(const char *filename, const char *sequence)
 
 void print_binary(const char *sequence) 
 {
-    printf("\n=== Binary Output ===\n\n");
+    log_printf("\n=== Binary Output ===\n\n");
 
     for (int i = 0; sequence[i] != '\0'; i++) 
     {
         if (sequence[i] == 'A') 
         {
-            printf("00");
+            log_printf("00");
         } 
         else if (sequence[i] == 'C') 
         {
-            printf("01");
+            log_printf("01");
         } 
         else if (sequence[i] == 'G') 
         {
-            printf("10");
+            log_printf("10");
         } 
         else if (sequence[i] == 'T') 
         {
-            printf("11");
+            log_printf("11");
         } 
         else 
         {
-            printf("??");
+            log_printf("??");
         }
     }
 
-    printf("\n");
+    log_printf("\n");
 }
 
 void print_hex(const char *sequence) 
 {
-    printf("\n=== Hex Output ===\n\n");
+    log_printf("\n=== Hex Output ===\n\n");
 
     int i = 0;
 
@@ -704,18 +727,18 @@ void print_hex(const char *sequence)
             }
 
             unsigned char combined = (code1 << 2) | code2;
-            printf("%X", combined);
+            log_printf("%X", combined);
 
             i = i + 2;
         } 
         else 
         {
-            printf("%X", code1 << 2);
+            log_printf("%X", code1 << 2);
             break;
         }
     }
 
-    printf("\n");
+    log_printf("\n");
 }
 
 void derive_key_bytes(const char *sequence, unsigned char *key_out) 
@@ -756,16 +779,16 @@ void derive_key(const char *sequence)
 
     derive_key_bytes(sequence, key);
 
-    printf("\n=== Derived Key ===\n\n");
+    log_printf("\n=== Derived Key ===\n\n");
 
-    printf("DNA Key (32 chars): ");
+    log_printf("DNA Key (32 chars): ");
 
     for (int i = 0; i < KEY_SIZE; i++) 
     {
-        printf("%02X", key[i]);
+        log_printf("%02X", key[i]);
     }
 
-    printf("\n");
+    log_printf("\n");
 }
 
 void derive_hash(const char *sequence) 
@@ -797,16 +820,16 @@ void derive_hash(const char *sequence)
         hash[(i * 3) % 32] ^= (value << (i % 5)) | (value >> ((8 - (i % 5)) % 8));
     }
 
-    printf("\n=== Hash ===\n\n");
+    log_printf("\n=== Hash ===\n\n");
 
-    printf("DNA Hash (64 chars): ");
+    log_printf("DNA Hash (64 chars): ");
 
     for (int i = 0; i < 32; i++) 
     {
-        printf("%02X", hash[i]);
+        log_printf("%02X", hash[i]);
     }
 
-    printf("\n");
+    log_printf("\n");
 }
 
 void encrypt_text_with_dna_key(const char *sequence, const char *text) 
@@ -815,18 +838,18 @@ void encrypt_text_with_dna_key(const char *sequence, const char *text)
 
     derive_key_bytes(sequence, key);
 
-    printf("\n=== Encrypted Output ===\n\n");
+    log_printf("\n=== Encrypted Output ===\n\n");
 
-    printf("Plaintext : %s\n", text);
-    printf("Cipherhex : ");
+    log_printf("Plaintext : %s\n", text);
+    log_printf("Cipherhex : ");
 
     for (int i = 0; text[i] != '\0'; i++) 
     {
         unsigned char encrypted = text[i] ^ key[i % KEY_SIZE];
-        printf("%02X", encrypted);
+        log_printf("%02X", encrypted);
     }
 
-    printf("\n");
+    log_printf("\n");
 }
 
 void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string) 
@@ -835,10 +858,10 @@ void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string)
 
     derive_key_bytes(sequence, key);
 
-    printf("\n=== Decrypted Output ===\n\n");
+    log_printf("\n=== Decrypted Output ===\n\n");
 
-    printf("Cipherhex : %s\n", hex_string);
-    printf("Plaintext : ");
+    log_printf("Cipherhex : %s\n", hex_string);
+    log_printf("Plaintext : ");
 
     int len = strlen(hex_string);
 
@@ -854,15 +877,15 @@ void decrypt_hex_with_dna_key(const char *sequence, const char *hex_string)
         sscanf(hex_byte, "%02X", &value);
 
         unsigned char decrypted = (unsigned char)value ^ key[(i / 2) % KEY_SIZE];
-        printf("%c", decrypted);
+        log_printf("%c", decrypted);
     }
 
-    printf("\n");
+    log_printf("\n");
 }
 
 void print_qrcode(const char *sequence) 
 {
-    printf("\n=== QR Code ===\n\n");
+    log_printf("\n=== QR Code ===\n\n");
 
     int len = strlen(sequence);
     int size = 21;
@@ -874,7 +897,7 @@ void print_qrcode(const char *sequence)
         {
             if (block >= len) 
             {
-                printf("[ ]");
+                log_printf("[ ]");
             } 
             else 
             {
@@ -882,18 +905,18 @@ void print_qrcode(const char *sequence)
 
                 if (bit == 1) 
                 {
-                    printf("[#]");
+                    log_printf("[#]");
                 } 
                 else 
                 {
-                    printf("[ ]");
+                    log_printf("[ ]");
                 }
 
                 block++;
             }
         }
 
-        printf("\n");
+        log_printf("\n");
     }
 }
 
@@ -945,99 +968,99 @@ void print_histogram_horizontal(const char *sequence, int no_color)
 
     if (!no_color) 
     {
-        printf("\033[31m");
+        log_printf("\033[31m");
     }
 
-    printf("A: ");
+    log_printf("A: ");
 
     for (int i = 0; i < scaled_a; i++) 
     {
-        printf("#");
+        log_printf("#");
     }
 
     for (int i = scaled_a; i < BAR_WIDTH; i++) 
     {
-        printf(" ");
+        log_printf(" ");
     }
 
     if (!no_color) 
     {
-        printf("\033[0m");
+        log_printf("\033[0m");
     }
 
-    printf(" (%d)\n", a);
+    log_printf(" (%d)\n", a);
 
     if (!no_color) 
     {
-        printf("\033[32m");
+        log_printf("\033[32m");
     }
 
-    printf("C: ");
+    log_printf("C: ");
 
     for (int i = 0; i < scaled_c; i++) 
     {
-        printf("#");
+        log_printf("#");
     }
 
     for (int i = scaled_c; i < BAR_WIDTH; i++) 
     {
-        printf(" ");
+        log_printf(" ");
     }
 
     if (!no_color) 
     {
-        printf("\033[0m");
+        log_printf("\033[0m");
     }
 
-    printf(" (%d)\n", c);
+    log_printf(" (%d)\n", c);
 
     if (!no_color) 
     {
-        printf("\033[34m");
+        log_printf("\033[34m");
     }
 
-    printf("G: ");
+    log_printf("G: ");
 
     for (int i = 0; i < scaled_g; i++) 
     {
-        printf("#");
+        log_printf("#");
     }
 
     for (int i = scaled_g; i < BAR_WIDTH; i++) 
     {
-        printf(" ");
+        log_printf(" ");
     }
 
     if (!no_color) 
     {
-        printf("\033[0m");
+        log_printf("\033[0m");
     }
 
-    printf(" (%d)\n", g);
+    log_printf(" (%d)\n", g);
 
     if (!no_color) 
     {
-        printf("\033[33m");
+        log_printf("\033[33m");
     }
 
-    printf("T: ");
+    log_printf("T: ");
 
     for (int i = 0; i < scaled_t; i++) 
     {
-        printf("#");
+        log_printf("#");
     }
 
     for (int i = scaled_t; i < BAR_WIDTH; i++) 
     {
-        printf(" ");
+        log_printf(" ");
     }
 
     if (!no_color) 
     {
-        printf("\033[0m");
+        log_printf("\033[0m");
     }
 
-    printf(" (%d)\n", t);
+    log_printf(" (%d)\n", t);
 }
 
 void print_histogram_vertical(const char *sequence, int no_color)
@@ -1069,100 +1092,100 @@ void print_histogram_vertical(const char *sequence, int no_color)
         height = max;
     }
 
-    printf("\n=== DNA Base Distribution Histogram (vertical) ===\n\n");
+    log_printf("\n=== DNA Base Distribution Histogram (vertical) ===\n\n");
 
     for (int row = height; row > 0; row--) 
     {
         if (!no_color) 
         {
-            printf("\033[31m");
+            log_printf("\033[31m");
         }
 
-        printf(" ");
+        log_printf(" ");
 
         if (a >= row) 
         {
-            printf("#");
+            log_printf("#");
         } 
         else 
         {
-            printf(" ");
+            log_printf(" ");
         }
 
         if (!no_color) 
         {
-            printf("\033[0m");
+            log_printf("\033[0m");
         }
 
         if (!no_color) 
         {
-            printf("\033[32m");
+            log_printf("\033[32m");
         }
 
-        printf(" ");
+        log_printf(" ");
 
         if (c >= row) 
         {
-            printf("#");
+            log_printf("#");
         } 
         else 
         {
-            printf(" ");
+            log_printf(" ");
         }
 
         if (!no_color) 
         {
-            printf("\033[0m");
+            log_printf("\033[0m");
         }
 
         if (!no_color) 
         {
-            printf("\033[34m");
+            log_printf("\033[34m");
         }
 
-        printf(" ");
+        log_printf(" ");
 
         if (g >= row) 
         {
-            printf("#");
+            log_printf("#");
         } 
         else 
         {
-            printf(" ");
+            log_printf(" ");
         }
 
         if (!no_color) 
         {
-            printf("\033[0m");
+            log_printf("\033[0m");
         }
 
         if (!no_color) 
         {
-            printf("\033[33m");
+            log_printf("\033[33m");
         }
 
-        printf(" ");
+        log_printf(" ");
 
         if (t >= row) 
         {
-            printf("#");
+            log_printf("#");
         } 
         else 
         {
-            printf(" ");
+            log_printf(" ");
         }
 
         if (!no_color) 
         {
-            printf("\033[0m");
+            log_printf("\033[0m");
         }
 
-        printf("\n");
+        log_printf("\n");
     }
 
-    printf(" A C G T\n");
+    log_printf(" A C G T\n");
 
-    printf("(%d %d %d %d)\n", a, c, g, t);
+    log_printf("(%d %d %d %d)\n", a, c, g, t);
 }
 
 void compress_sequence(const char *input, char *output) 
@@ -1250,8 +1273,8 @@ void print_compressed(const char *sequence)
 
     compress_sequence(sequence, compressed);
 
-    printf("\n=== Compressed Sequence ===\n\n");
-    printf("%s\n", compressed);
+    log_printf("\n=== Compressed Sequence ===\n\n");
+    log_printf("%s\n", compressed);
 }
 
 void print_decompressed(const char *sequence) 
@@ -1260,8 +1283,8 @@ void print_decompressed(const char *sequence)
 
     decompress_sequence(sequence, decompressed);
 
-    printf("\n=== Decompressed Sequence ===\n\n");
-    printf("%s\n", decompressed);
+    log_printf("\n=== Decompressed Sequence ===\n\n");
+    log_printf("%s\n", decompressed);
 }
 
 void encrypt_file(const char *dna_sequence, const char *input_filename, const char *output_filename) 
@@ -1274,7 +1297,7 @@ void encrypt_file(const char *dna_sequence, const char *input_filename, const ch
 
     if (fin == NULL) 
     {
-        printf("Error: Could not open input file '%s'\n", input_filename);
+        log_printf("Error: Could not open input file '%s'\n", input_filename);
         return;
     }
 
@@ -1283,13 +1306,13 @@ void encrypt_file(const char *dna_sequence, const char *input_filename, const ch
     if (fout == NULL) 
     {
         fclose(fin);
-        printf("Error: Could not open output file '%s'\n", output_filename);
+        log_printf("Error: Could not open output file '%s'\n", output_filename);
         return;
     }
 
-    printf("\n=== File Encryption ===\n\n");
-    printf("Input : %s\n", input_filename);
-    printf("Output: %s\n", output_filename);
+    log_printf("\n=== File Encryption ===\n\n");
+    log_printf("Input : %s\n", input_filename);
+    log_printf("Output: %s\n", output_filename);
 
     int i = 0;
     int ch;
@@ -1304,7 +1327,7 @@ void encrypt_file(const char *dna_sequence, const char *input_filename, const ch
     fclose(fin);
     fclose(fout);
 
-    printf("File encrypted successfully.\n");
+    log_printf("File encrypted successfully.\n");
 }
 
 void decrypt_file(const char *dna_sequence, const char *input_filename, const char *output_filename) 
@@ -1317,7 +1340,7 @@ void decrypt_file(const char *dna_sequence, const char *input_filename, const ch
 
     if (fin == NULL) 
     {
-        printf("Error: Could not open input file '%s'\n", input_filename);
+        log_printf("Error: Could not open input file '%s'\n", input_filename);
         return;
     }
 
@@ -1326,13 +1349,13 @@ void decrypt_file(const char *dna_sequence, const char *input_filename, const ch
     if (fout == NULL) 
     {
         fclose(fin);
-        printf("Error: Could not open output file '%s'\n", output_filename);
+        log_printf("Error: Could not open output file '%s'\n", output_filename);
         return;
     }
 
-    printf("\n=== File Decryption ===\n\n");
-    printf("Input : %s\n", input_filename);
-    printf("Output: %s\n", output_filename);
+    log_printf("\n=== File Decryption ===\n\n");
+    log_printf("Input : %s\n", input_filename);
+    log_printf("Output: %s\n", output_filename);
 
     int i = 0;
     int ch;
@@ -1347,7 +1370,7 @@ void decrypt_file(const char *dna_sequence, const char *input_filename, const ch
     fclose(fin);
     fclose(fout);
 
-    printf("File decrypted successfully.\n");
+    log_printf("File decrypted successfully.\n");
 }
 
 void print_complexity(const char *sequence) 
@@ -1358,8 +1381,8 @@ void print_complexity(const char *sequence)
 
     if (total == 0) 
     {
-        printf("\n=== Sequence Complexity ===\n\n");
-        printf("Sequence is empty.\n");
+        log_printf("\n=== Sequence Complexity ===\n\n");
+        log_printf("Sequence is empty.\n");
         return;
     }
 
@@ -1390,8 +1413,8 @@ void print_complexity(const char *sequence)
         entropy -= pt * log2(pt);
     }
 
-    printf("\n=== Sequence Complexity ===\n\n");
-    printf("Shannon Entropy: %.4f bits/base (max: 2.0000)\n", entropy);
+    log_printf("\n=== Sequence Complexity ===\n\n");
+    log_printf("Shannon Entropy: %.4f bits/base (max: 2.0000)\n", entropy);
 }
 
 void print_version(const char *progname) 
@@ -1443,6 +1466,7 @@ void print_help(const char *progname)
     printf("  --benchmark             Measure and display analysis time\n");
     printf("  --rotate <N>            Cyclically rotate DNA sequence by N bases\n");
     printf("  --hamming <seq>         Calculate Hamming distance to reference sequence\n");
+    printf("  --log <file>            Log all terminal output to specified file\n");
     printf("  --version, -v           Show program version and build info\n");
     printf("  --help, -h              Show this help message\n\n");
 }
@@ -1485,10 +1509,9 @@ options parse_args(int argc, char *argv[])
     config.do_benchmark = 0;
     config.do_translate = 0;
     config.rotate_n = 0;
-
     config.do_hamming = 0;
-    config.hamming_seq[0] = '\0';
 
+    config.hamming_seq[0] = '\0';
     config.input_file[0] = '\0';
     config.output_file[0] = '\0';
     config.csv_file[0] = '\0';
@@ -1502,6 +1525,8 @@ options parse_args(int argc, char *argv[])
     config.encrypt_file_output[0] = '\0';
     config.decrypt_file_input[0] = '\0';
     config.decrypt_file_output[0] = '\0';
+    config.log_file[0] = '\0';
+    config.do_log = 0;
 
     for (int i = 1; i < argc; i++) 
     {
@@ -1672,6 +1697,11 @@ options parse_args(int argc, char *argv[])
         {
             print_help(argv[0]);
             exit(0);
+        }
+        else if (strcmp(argv[i], "--log") == 0 && i + 1 < argc)
+        {
+            strncpy(config.log_file, argv[++i], MAX_FILENAME_LENGTH - 1);
+            config.do_log = 1;
         }
     }
 
@@ -1851,7 +1881,7 @@ char translate_codon(const char *codon)
 
 void translate_sequence(const char *sequence) 
 {
-    printf("\n=== Translation to Amino Acids ===\n\n");
+    log_printf("\n=== Translation to Amino Acids ===\n\n");
 
     int len = strlen(sequence);
     int start_index = -1;
@@ -1868,8 +1898,8 @@ void translate_sequence(const char *sequence)
 
     if (start_index == -1) 
     {
-        printf("No start codon found.\n");
-        printf("\n");
+        log_printf("No start codon found.\n");
+        log_printf("\n");
         return;
     }
 
@@ -1889,10 +1919,10 @@ void translate_sequence(const char *sequence)
             break;
         }
 
-        printf("%c", aa);
+        log_printf("%c", aa);
     }
 
-    printf("\n");
+    log_printf("\n");
 }
 
 void rotate_sequence(char *sequence, int n)
@@ -1946,8 +1976,8 @@ void process_sequence(char *sequence, options config)
 
         decompress_sequence(work_seq, decompressed);
 
-        printf("\n=== Decompressed Sequence ===\n\n");
-        printf("%s\n", decompressed);
+        log_printf("\n=== Decompressed Sequence ===\n\n");
+        log_printf("%s\n", decompressed);
 
         strcpy(work_seq, decompressed);
     } 
@@ -2078,7 +2108,7 @@ void process_sequence(char *sequence, options config)
         export_stats_json(config.export_stats_file, work_seq);
     }
 
-    printf("\n");
+    log_printf("\n");
 }
 
 void run_compare_mode(options config) 
@@ -2088,11 +2118,11 @@ void run_compare_mode(options config)
 
     int diff = count_differences(config.compare_seq1, config.compare_seq2);
 
-    printf("\n=== Comparing Sequences ===\n\n");
+    log_printf("\n=== Comparing Sequences ===\n\n");
 
-    printf("Sequence 1: %s\n", config.compare_seq1);
-    printf("Sequence 2: %s\n", config.compare_seq2);
-    printf("Differences: %d base(s)\n", diff);
+    log_printf("Sequence 1: %s\n", config.compare_seq1);
+    log_printf("Sequence 2: %s\n", config.compare_seq2);
+    log_printf("Differences: %d base(s)\n", diff);
 
     process_sequence(config.compare_seq1, config);
     process_sequence(config.compare_seq2, config);
@@ -2113,7 +2143,7 @@ void run_hamming_mode(const char *sequence, options config)
 
     if (len_seq != len_ref) 
     {
-        printf("\nError: Sequences have different lengths. Cannot compute Hamming distance.\n\n");
+        log_printf("\nError: Sequences have different lengths. Cannot compute Hamming distance.\n\n");
         return;
     }
 
@@ -2127,8 +2157,8 @@ void run_hamming_mode(const char *sequence, options config)
         }
     }
 
-    printf("\n=== Hamming Distance ===\n\n");
-    printf("%d\n\n", hamming_distance);
+    log_printf("\n=== Hamming Distance ===\n\n");
+    log_printf("%d\n\n", hamming_distance);
 }
 
 int main(int argc, char *argv[]) 
@@ -2139,15 +2169,45 @@ int main(int argc, char *argv[])
 
     options config = parse_args(argc, argv);
 
+    if (config.do_log == 1) 
+    {
+        log_fp = fopen(config.log_file, "w");
+
+        if (log_fp == NULL) 
+        {
+            printf("Error: Could not open log file '%s' for writing.\n", config.log_file);
+            return 1;
+        }
+    }
+
     if (config.show_version == 1) 
     {
-        print_version(argv[0]);
+        printf("\n%s version %s\n", argv[0], PROGRAM_VERSION);
+        printf("Build date: %s %s\n\n", BUILD_DATE, BUILD_TIME);
+
+        if (log_fp != NULL) 
+        {
+            fprintf(log_fp, "\n%s version %s\n", argv[0], PROGRAM_VERSION);
+            fprintf(log_fp, "Build date: %s %s\n\n", BUILD_DATE, BUILD_TIME);
+        }
+
+        if (log_fp != NULL) 
+        {
+            fclose(log_fp);
+        }
+
         return 0;
     }
 
     if (config.compare_mode == 1) 
     {
         run_compare_mode(config);
+
+        if (log_fp != NULL) 
+        {
+            fclose(log_fp);
+        }
+
         return 0;
     }
 
@@ -2155,6 +2215,12 @@ int main(int argc, char *argv[])
     {
         generate_random_sequence(sequence, config.random_length);
         process_sequence(sequence, config);
+
+        if (log_fp != NULL) 
+        {
+            fclose(log_fp);
+        }
+
         return 0;
     }
 
@@ -2165,12 +2231,25 @@ int main(int argc, char *argv[])
         if (fgets(sequence, sizeof(sequence), stdin) == NULL) 
         {
             printf("Error: Failed to read input.\n");
+
+            if (log_fp != NULL) 
+            {
+                fprintf(log_fp, "Error: Failed to read input.\n");
+                fclose(log_fp);
+            }
+
             return 1;
         }
 
         sequence[strcspn(sequence, "\n")] = '\0';
         clean_sequence(sequence);
         encrypt_file(sequence, config.encrypt_file_input, config.encrypt_file_output);
+
+        if (log_fp != NULL) 
+        {
+            fclose(log_fp);
+        }
+
         return 0;
     }
 
@@ -2181,12 +2260,25 @@ int main(int argc, char *argv[])
         if (fgets(sequence, sizeof(sequence), stdin) == NULL) 
         {
             printf("Error: Failed to read input.\n");
+
+            if (log_fp != NULL) 
+            {
+                fprintf(log_fp, "Error: Failed to read input.\n");
+                fclose(log_fp);
+            }
+
             return 1;
         }
 
         sequence[strcspn(sequence, "\n")] = '\0';
         clean_sequence(sequence);
         decrypt_file(sequence, config.decrypt_file_input, config.decrypt_file_output);
+
+        if (log_fp != NULL) 
+        {
+            fclose(log_fp);
+        }
+
         return 0;
     }
 
@@ -2205,6 +2297,13 @@ int main(int argc, char *argv[])
         if (file == NULL) 
         {
             printf("Error: Could not open file '%s'\n", config.input_file);
+
+            if (log_fp != NULL) 
+            {
+                fprintf(log_fp, "Error: Could not open file '%s'\n", config.input_file);
+                fclose(log_fp);
+            }
+
             return 1;
         }
 
@@ -2281,6 +2380,13 @@ int main(int argc, char *argv[])
             if (fgets(sequence, sizeof(sequence), stdin) == NULL) 
             {
                 printf("Error: Failed to read input.\n");
+
+                if (log_fp != NULL) 
+                {
+                    fprintf(log_fp, "Error: Failed to read input.\n");
+                    fclose(log_fp);
+                }
+
                 return 1;
             }
 
@@ -2303,8 +2409,13 @@ int main(int argc, char *argv[])
 
         double elapsed = (double)(end_time - start_time) / CLOCKS_PER_SEC;
 
-        printf("\n=== Benchmark ===\n\n");
-        printf("Analysis took %.6f seconds.\n\n", elapsed);
+        log_printf("\n=== Benchmark ===\n\n");
+        log_printf("Analysis took %.6f seconds.\n\n", elapsed);
+    }
+
+    if (log_fp != NULL) 
+    {
+        fclose(log_fp);
     }
 
     return 0;
