@@ -69,6 +69,8 @@ typedef struct {
     int do_fasta_input;
     int do_fasta_export;
     int do_orf;
+    int do_position;
+    char position_base;
 
     char log_file[MAX_FILENAME_LENGTH];
     char hamming_seq[MAX_DNA_LENGTH];
@@ -499,6 +501,30 @@ void find_pattern(const char *sequence, const char *pattern, int color)
         print_match_marked(sequence, seq_len, positions[m], pat_len, color ? 1 : 0);
         log_printf("\n");
     }
+}
+
+void print_positions_of_base(const char *sequence, char base)
+{
+    log_printf("\n=== Positions of base '%c' ===\n\n", base);
+
+    int length = strlen(sequence);
+    int found = 0;
+
+    for (int i = 0; i < length; i++) 
+    {
+        if (sequence[i] == base) 
+        {
+            log_printf("%d\n", i);
+            found = 1;
+        }
+    }
+
+    if (!found) 
+    {
+        log_printf("Base '%c' not found in sequence.\n", base);
+    }
+
+    log_printf("\n");
 }
 
 void print_stats(const char *sequence) 
@@ -1485,7 +1511,8 @@ void print_help(const char *progname)
     printf("  --log <file>            Log all terminal output to specified file\n");
     printf("  --fasta <file>          Read a single DNA sequence from a FASTA file\n");
     printf("  --export-fasta <file>   Export processed sequence to a FASTA file\n");
-    printf("  --orf                   Find and display Open Reading Frames (ORFs) in the sequence\n\n");
+    printf("  --orf                   Find and display Open Reading Frames (ORFs) in the sequence\n");
+    printf("  --position <base>       Show all 0-based positions of specified base (A, C, G, T)\n\n");
     printf("  --version, -v           Show program version and build info\n");
     printf("  --help, -h              Show this help message\n");
 }
@@ -1535,6 +1562,8 @@ options parse_args(int argc, char *argv[])
     config.do_fasta_input = 0;
     config.do_fasta_export = 0;
     config.do_orf = 0;
+    config.do_position = 0;
+    config.position_base = '\0';
 
     config.hamming_seq[0] = '\0';
     config.input_file[0] = '\0';
@@ -1750,6 +1779,16 @@ options parse_args(int argc, char *argv[])
         else if (strcmp(argv[i], "--orf") == 0)
         {
             config.do_orf = 1;
+        }
+        else if (strcmp(argv[i], "--position") == 0 && i + 1 < argc)
+        {
+            char b = toupper(argv[++i][0]);
+
+            if (is_valid_base(b)) 
+            {
+                config.do_position = 1;
+                config.position_base = b;
+            }
         }
     }
 
@@ -2278,6 +2317,11 @@ void process_sequence(char *sequence, options config)
     if (config.do_orf == 1) 
     {
         find_orfs(work_seq);
+    }
+
+    if (config.do_position == 1) 
+    {
+        print_positions_of_base(work_seq, config.position_base);
     }
 
     if (config.show_json == 1) 
