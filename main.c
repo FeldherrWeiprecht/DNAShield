@@ -68,6 +68,7 @@ typedef struct {
     int do_palindrome;
     int do_fasta_input;
     int do_fasta_export;
+    int do_orf;
 
     char log_file[MAX_FILENAME_LENGTH];
     char hamming_seq[MAX_DNA_LENGTH];
@@ -1483,7 +1484,8 @@ void print_help(const char *progname)
     printf("  --hamming <seq>         Calculate Hamming distance to reference sequence\n");
     printf("  --log <file>            Log all terminal output to specified file\n");
     printf("  --fasta <file>          Read a single DNA sequence from a FASTA file\n");
-    printf("  --export-fasta <file>   Export processed sequence to a FASTA file\n\n");
+    printf("  --export-fasta <file>   Export processed sequence to a FASTA file\n");
+    printf("  --orf                   Find and display Open Reading Frames (ORFs) in the sequence\n\n");
     printf("  --version, -v           Show program version and build info\n");
     printf("  --help, -h              Show this help message\n");
 }
@@ -1532,6 +1534,7 @@ options parse_args(int argc, char *argv[])
     config.do_palindrome = 0;
     config.do_fasta_input = 0;
     config.do_fasta_export = 0;
+    config.do_orf = 0;
 
     config.hamming_seq[0] = '\0';
     config.input_file[0] = '\0';
@@ -1743,6 +1746,10 @@ options parse_args(int argc, char *argv[])
         {
             strncpy(config.fasta_export_file, argv[++i], MAX_FILENAME_LENGTH - 1);
             config.do_fasta_export = 1;
+        }
+        else if (strcmp(argv[i], "--orf") == 0)
+        {
+            config.do_orf = 1;
         }
     }
 
@@ -2111,6 +2118,99 @@ int export_fasta_sequence(const char *filename, const char *sequence)
     return 1;
 }
 
+void print_orf(const char *sequence, int frame, int start, int end) 
+{
+    int length = end - start + 1;
+
+    if (length <= 0) 
+    {
+        return;
+    }
+
+    char aa_sequence[MAX_DNA_LENGTH];
+    int aa_index = 0;
+
+    for (int i = start; i + 2 <= end; i += 3) 
+    {
+        char codon[4];
+
+        codon[0] = sequence[i];
+        codon[1] = sequence[i + 1];
+        codon[2] = sequence[i + 2];
+        codon[3] = '\0';
+
+        char aa = translate_codon(codon);
+
+        if (aa == '*') 
+        {
+            break;
+        }
+
+        aa_sequence[aa_index] = aa;
+        aa_index++;
+    }
+
+    aa_sequence[aa_index] = '\0';
+
+    log_printf("Frame %d: Start=%d End=%d Length=%d\n", frame, start, end, length);
+    log_printf("Amino Acid Sequence: %s\n\n", aa_sequence);
+}
+
+void find_orfs(const char *sequence) 
+{
+    int seq_len = strlen(sequence);
+
+    log_printf("\n=== Open Reading Frames (ORFs) ===\n\n");
+
+    for (int frame = 0; frame < 3; frame++) 
+    {
+        int i = frame;
+
+        while (i + 2 < seq_len) 
+        {
+            if (sequence[i] == 'A' && sequence[i + 1] == 'T' && sequence[i + 2] == 'G') 
+            {
+                int start = i;
+                int j = i + 3;
+                int found_stop = 0;
+
+                while (j + 2 < seq_len) 
+                {
+                    char codon[4];
+
+                    codon[0] = sequence[j];
+                    codon[1] = sequence[j + 1];
+                    codon[2] = sequence[j + 2];
+                    codon[3] = '\0';
+
+                    if (strcmp(codon, "TAA") == 0 || strcmp(codon, "TAG") == 0 || strcmp(codon, "TGA") == 0) 
+                    {
+                        found_stop = 1;
+                        break;
+                    }
+
+                    j += 3;
+                }
+
+                if (found_stop) 
+                {
+                    print_orf(sequence, frame, start, j + 2);
+                    i = j + 3;
+                } 
+                else 
+                {
+                    print_orf(sequence, frame, start, seq_len - 1);
+                    break;
+                }
+            } 
+            else 
+            {
+                i += 3;
+            }
+        }
+    }
+}
+
 void process_sequence(char *sequence, options config) 
 {
     char work_seq[MAX_DNA_LENGTH];
@@ -2173,6 +2273,11 @@ void process_sequence(char *sequence, options config)
     if (config.do_palindrome == 1) 
     {
         check_palindrome(work_seq);
+    }
+
+    if (config.do_orf == 1) 
+    {
+        find_orfs(work_seq);
     }
 
     if (config.show_json == 1) 
